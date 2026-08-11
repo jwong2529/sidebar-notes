@@ -83,7 +83,7 @@ noteArea.addEventListener("keydown", (e) => {
 });
 
 function renderNoteList() {
-  dropdownItems.innerHTML = "";
+  dropdownItems.replaceChildren();
   notes.forEach((note) => {
     const item = document.createElement("button");
     item.className = "dropdown-item";
@@ -115,10 +115,12 @@ function selectNote(id) {
   const note = notes.find((n) => n.id === id);
   if (note) {
     noteTitleText.textContent = note.title;
-    noteArea.innerHTML = note.content || "";
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(note.content || "", "text/html");
+    noteArea.replaceChildren(...doc.body.childNodes);
   } else {
     noteTitleText.textContent = "Untitled Note";
-    noteArea.innerHTML = "";
+    noteArea.replaceChildren();
   }
   renderNoteList();
   updateFormatIndicators();

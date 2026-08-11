@@ -3,6 +3,14 @@
   "name": "Sidebar Notes",
   "version": "1.0",
   "description": "A simple notes extension integrated into Firefox's native sidebar panel.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "sidebar-notes-ext@example.com",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
   "permissions": [
     "storage"
   ],
