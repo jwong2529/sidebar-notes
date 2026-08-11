@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="sidebar.css">
+</head>
+
+<body>
+  <div class="container">
+    <div class="editor-pane">
+      <div class="toolbar">
+        <div class="toolbar-row utilities-row">
+          <div class="group header-group">
+            <button id="menu-btn" class="icon-btn" title="Menu">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+              </svg>
+            </button>
+            <div id="dropdown-menu" class="dropdown-menu hidden">
+              <div class="dropdown-items" id="dropdown-items"></div>
+              <div class="dropdown-divider"></div>
+              <button id="add-btn" class="dropdown-item add-note-btn">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>New Note</span>
+              </button>
+            </div>
+          </div>
+          <div class="group title-group">
+            <span id="note-title-text" class="note-title-text">Untitled Note</span>
+            <button id="rename-btn" class="icon-btn" title="Rename Note">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="group utilities">
+            <button id="theme-btn" title="Toggle Light/Dark Theme" class="icon-btn">
+              <svg class="sun-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+              <svg class="moon-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            </button>
+            <button id="export-btn" title="Export notes to HTML file" class="icon-btn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+            </button>
+            <button id="clear-btn" class="icon-btn danger" title="Delete current note">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="toolbar-row editor-row">
+          <div class="group">
+            <button id="bold-btn" class="format-btn" title="Bold">B</button>
+            <button id="italic-btn" class="format-btn" title="Italic">I</button>
+            <button id="underline-btn" class="format-btn" title="Underline">U</button>
+          </div>
+          <div class="divider"></div>
+          <div class="group">
+            <button id="p-btn" class="format-btn" title="Normal Text">P</button>
+            <button id="h1-btn" class="format-btn" title="Heading 1">H1</button>
+            <button id="h2-btn" class="format-btn" title="Heading 2">H2</button>
+          </div>
+        </div>
+      </div>
+      <div id="note-area" contenteditable="true" placeholder="Type your notes here..."></div>
+    </div>
+    <div id="status-bar">Saved</div>
+  </div>
+  <script src="sidebar.js"></script>
+</body>
+
+</html>

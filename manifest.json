@@ -1,0 +1,23 @@
+{
+  "manifest_version": 2,
+  "name": "Sidebar Notes",
+  "version": "1.0",
+  "description": "A simple notes extension integrated into Firefox's native sidebar panel.",
+  "permissions": [
+    "storage"
+  ],
+  "icons": {
+    "16": "icons/notepad-text-16.svg",
+    "48": "icons/notepad-text-32.svg",
+    "96": "icons/notepad-text-48.svg"
+  },
+  "sidebar_action": {
+    "default_title": "Notes",
+    "default_panel": "sidebar.html",
+    "default_icon": {
+      "16": "icons/notepad-text-16.svg",
+      "32": "icons/notepad-text-32.svg",
+      "48": "icons/notepad-text-48.svg"
+    }
+  }
+}
