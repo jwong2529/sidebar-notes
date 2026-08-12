@@ -13,6 +13,7 @@ const renameBtn = document.getElementById("rename-btn");
 const boldBtn = document.getElementById("bold-btn");
 const italicBtn = document.getElementById("italic-btn");
 const underlineBtn = document.getElementById("underline-btn");
+const strikeBtn = document.getElementById("strike-btn");
 const pBtn = document.getElementById("p-btn");
 const h1Btn = document.getElementById("h1-btn");
 const h2Btn = document.getElementById("h2-btn");
@@ -35,6 +36,7 @@ function updateFormatIndicators() {
   boldBtn.classList.toggle("active", document.queryCommandState("bold"));
   italicBtn.classList.toggle("active", document.queryCommandState("italic"));
   underlineBtn.classList.toggle("active", document.queryCommandState("underline"));
+  strikeBtn.classList.toggle("active", document.queryCommandState("strikeThrough"));
 
   let blockValue = document.queryCommandValue("formatBlock") || "";
   blockValue = blockValue.toLowerCase();
@@ -54,6 +56,7 @@ function format(command, value = null) {
 boldBtn.addEventListener("click", () => format("bold"));
 italicBtn.addEventListener("click", () => format("italic"));
 underlineBtn.addEventListener("click", () => format("underline"));
+strikeBtn.addEventListener("click", () => format("strikeThrough"));
 pBtn.addEventListener("click", () => format("formatBlock", "p"));
 h1Btn.addEventListener("click", () => format("formatBlock", "h1"));
 h2Btn.addEventListener("click", () => format("formatBlock", "h2"));

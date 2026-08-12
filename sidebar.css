@@ -253,6 +253,11 @@ button.format-btn {
   font-weight: normal;
 }
 
+#strike-btn {
+  text-decoration: line-through;
+  font-weight: normal;
+}
+
 button.danger:hover {
   background-color: #fbe8e8;
   color: #e22525;
