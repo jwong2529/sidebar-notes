@@ -27,5 +27,13 @@
       "32": "icons/notepad-text-32.svg",
       "48": "icons/notepad-text-48.svg"
     }
+  },
+  "commands": {
+    "_execute_sidebar_action": {
+      "suggested_key": {
+        "default": "Ctrl+Period",
+        "mac": "Command+Period"
+      }
+    }
   }
 }
