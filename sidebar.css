@@ -281,6 +281,7 @@ button.danger:active {
   overflow-y: auto;
   word-wrap: break-word;
   min-height: 0;
+  cursor: text;
 }
 
 #note-area:empty:before {
