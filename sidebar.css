@@ -280,6 +280,9 @@ button.danger:active {
   box-sizing: border-box;
   overflow-y: auto;
   word-wrap: break-word;
+  white-space: pre-wrap;
+  -moz-tab-size: 4;
+  tab-size: 4;
   min-height: 0;
   cursor: text;
 }

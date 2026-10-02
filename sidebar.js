@@ -71,6 +71,24 @@ document.addEventListener("selectionchange", () => {
 });
 
 noteArea.addEventListener("keydown", (e) => {
+  if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault();
+    if (!document.execCommand("insertText", false, "\t")) {
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        const tabNode = document.createTextNode("\t");
+        range.insertNode(tabNode);
+        range.setStartAfter(tabNode);
+        range.setEndAfter(tabNode);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    }
+    triggerSave();
+    return;
+  }
   if (e.metaKey || e.ctrlKey) {
     if (e.key === "b" || e.key === "B") {
       e.preventDefault();
