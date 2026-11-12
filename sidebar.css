@@ -773,7 +773,8 @@ body .delete-confirm-actions button.danger:focus-visible {
   }
 }
 
-#note-area [data-todo] {
+#note-area [data-todo],
+#note-area [data-bullet] {
   min-height: 1.5em;
 }
 

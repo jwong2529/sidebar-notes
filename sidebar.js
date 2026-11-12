@@ -24,6 +24,8 @@ const boldBtn = document.getElementById("bold-btn");
 const italicBtn = document.getElementById("italic-btn");
 const underlineBtn = document.getElementById("underline-btn");
 const strikeBtn = document.getElementById("strike-btn");
+const bulletBtn = document.getElementById("bullet-btn");
+const todoBtn = document.getElementById("todo-btn");
 const pBtn = document.getElementById("p-btn");
 const h1Btn = document.getElementById("h1-btn");
 const h2Btn = document.getElementById("h2-btn");
@@ -195,7 +197,12 @@ function updateFormatIndicators() {
   let blockValue = document.queryCommandValue("formatBlock") || "";
   blockValue = blockValue.toLowerCase();
 
-  pBtn.classList.toggle("active", blockValue === "p" || blockValue === "div" || blockValue === "");
+  const currentListItem = listItemAtSelection();
+  const listType = currentListItem ? getListItemType(currentListItem) : null;
+  bulletBtn.classList.toggle("active", listType === "bullet");
+  todoBtn.classList.toggle("active", listType === "todo");
+
+  pBtn.classList.toggle("active", !listType && (blockValue === "p" || blockValue === "div" || blockValue === ""));
   h1Btn.classList.toggle("active", blockValue === "h1");
   h2Btn.classList.toggle("active", blockValue === "h2");
 }
@@ -982,57 +989,121 @@ clearBtn.addEventListener("click", () => {
   }
 });
 
-function todoAtSelection() {
+const LIST_ITEM_REGISTRY = {
+  todo: {
+    attr: "data-todo",
+    createPrefix(checked = false) {
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.setAttribute("aria-label", "Complete task");
+      if (checked) checkbox.setAttribute("checked", "");
+      return checkbox;
+    },
+    isPrefix(node) {
+      return node.matches?.('input[type="checkbox"]');
+    },
+    toText(node) {
+      return node.hasAttribute("checked") ? "[x] " : "[ ] ";
+    }
+  },
+  bullet: {
+    attr: "data-bullet",
+    createPrefix() {
+      const marker = document.createElement("span");
+      marker.dataset.bulletMarker = "true";
+      marker.setAttribute("aria-hidden", "true");
+      marker.style.cssText = "display: inline-block; width: 5px; height: 5px; margin: 0 9px 0 4px; vertical-align: 2px; border-radius: 50%; background: currentColor;";
+      return marker;
+    },
+    isPrefix(node) {
+      return node.hasAttribute?.("data-bullet-marker");
+    },
+    toText() {
+      return "- ";
+    }
+  }
+};
+
+const LIST_ITEM_ATTRS = Object.values(LIST_ITEM_REGISTRY).map((c) => c.attr);
+const LIST_ITEM_SELECTOR = Object.values(LIST_ITEM_REGISTRY).map((c) => `[${c.attr}]`).join(", ");
+const LIST_PREFIX_SELECTOR = 'input[type="checkbox"], [data-bullet-marker]';
+
+function getListItemType(element) {
+  for (const [type, config] of Object.entries(LIST_ITEM_REGISTRY)) {
+    if (element?.hasAttribute?.(config.attr)) return type;
+  }
+  return null;
+}
+
+function listItemAtSelection() {
   const node = window.getSelection().anchorNode;
   const element = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
-  const item = element && element.closest("[data-todo]");
+  const item = element && element.closest(LIST_ITEM_SELECTOR);
   return item && noteArea.contains(item) ? item : null;
 }
 
-function todoMarkup(text = "", depth = 0, checked = false) {
+function bulletMarker() {
+  return LIST_ITEM_REGISTRY.bullet.createPrefix();
+}
+
+function createListItemMarkup(text = "", depth = 0, checked = false, type = "todo") {
+  const config = LIST_ITEM_REGISTRY[type] || LIST_ITEM_REGISTRY.todo;
   const item = document.createElement("div");
-  item.dataset.todo = "true";
+  item.setAttribute(config.attr, "true");
   item.dataset.depth = String(depth);
   item.style.marginLeft = `${depth * 24}px`;
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.setAttribute("aria-label", "Complete task");
-  if (checked) checkbox.setAttribute("checked", "");
-  item.append(checkbox, text ? document.createTextNode(text) : document.createElement("br"));
+  const prefix = config.createPrefix(checked);
+  item.append(prefix, text ? document.createTextNode(text) : document.createElement("br"));
   return item.outerHTML;
 }
 
-const todoBtn = document.getElementById("todo-btn");
+function stripListPrefixes(element) {
+  element.querySelectorAll(LIST_PREFIX_SELECTOR).forEach((node) => node.remove());
+}
+
+function clearListItemAttributes(element) {
+  for (const attr of LIST_ITEM_ATTRS) {
+    element.removeAttribute(attr);
+  }
+  element.removeAttribute("data-depth");
+  element.style.removeProperty("margin-left");
+  stripListPrefixes(element);
+}
+
 todoBtn.addEventListener("mousedown", (event) => event.preventDefault());
 noteArea.addEventListener("mousedown", (event) => {
   if (event.target.matches('input[type="checkbox"]')) event.preventDefault();
 });
-todoBtn.addEventListener("click", () => {
+bulletBtn.addEventListener("mousedown", (event) => event.preventDefault());
+bulletBtn.addEventListener("click", () => toggleListItem("bullet"));
+todoBtn.addEventListener("click", () => toggleListItem("todo"));
+
+function toggleListItem(type) {
   noteArea.focus();
   const selectedRange = getEditorRange();
-  if (selectedRange.collapsed && todoAtSelection()) {
-    selectedRange.selectNodeContents(todoAtSelection());
-    if (convertSelectionToTodos(selectedRange)) return;
+  if (selectedRange.collapsed && listItemAtSelection()) {
+    selectedRange.selectNodeContents(listItemAtSelection());
+    if (convertSelectionToListItems(selectedRange, type)) return;
   }
-  if (!selectedRange.collapsed && convertSelectionToTodos(selectedRange)) return;
+  if (!selectedRange.collapsed && convertSelectionToListItems(selectedRange, type)) return;
   const template = document.createElement("template");
-  template.innerHTML = todoMarkup();
+  template.innerHTML = createListItemMarkup("", 0, false, type);
   const row = template.content.firstElementChild;
   const range = getEditorRange();
   const node = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
   const block = node.closest("div, p, h1, h2, li");
-  if (range.collapsed && block && block !== noteArea && noteArea.contains(block) && !block.querySelector("div, p, li, [data-todo]")) {
+  if (range.collapsed && block && block !== noteArea && noteArea.contains(block) && !block.querySelector("div, p, li, " + LIST_ITEM_SELECTOR)) {
     const content = block.cloneNode(true);
-    content.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => checkbox.remove());
+    stripListPrefixes(content);
     row.lastChild.remove();
     row.append(...content.childNodes);
     if (row.childNodes.length === 1) row.append(document.createElement("br"));
     range.selectNode(block);
   }
-  insertTodoEdit(range, [row], 0, 1);
-});
+  insertListItemEdit(range, [row], 0, 1);
+}
 
-function convertSelectionToTodos(range) {
+function convertSelectionToListItems(range, type = "todo") {
   if (!noteArea.contains(range.startContainer) || !noteArea.contains(range.endContainer)) return false;
   const blockSelector = "div, p, h1, h2, h3, h4, h5, h6, ul, ol, li, blockquote, pre";
   const groups = [];
@@ -1060,15 +1131,16 @@ function convertSelectionToTodos(range) {
   const touches = (row) => compare(range.startContainer, range.startOffset, row.endContainer, row.endOffset) < 0
     && compare(range.endContainer, range.endOffset, row.startContainer, row.startOffset) > 0;
   const collect = (container) => {
-    if (container.matches?.("[data-todo]")) {
+    const itemType = getListItemType(container);
+    if (itemType) {
       const row = document.createRange();
       row.selectNodeContents(container);
-      groups.push({ source: container, rows: [{ range: row, selected: touches(row) }], todo: true });
+      groups.push({ source: container, rows: [{ range: row, selected: touches(row) }], isList: true, type: itemType });
       return;
     }
     if (container.querySelector?.(blockSelector)) {
       for (const child of container.childNodes) {
-        if (child.nodeType === Node.ELEMENT_NODE || (child.nodeType === Node.TEXT_NODE && child.textContent.length)) collect(child);
+        if (child.nodeType === Node.ELEMENT_NODE || (child.nodeType === Node.TEXT_NODE && child.textContent.replace(/\u200b/g, "").length)) collect(child);
       }
       return;
     }
@@ -1103,12 +1175,12 @@ function convertSelectionToTodos(range) {
     tail.setEnd(container, container.nodeType === Node.TEXT_NODE ? container.length : container.childNodes.length);
     const fragment = tail.cloneContents();
     if (!rows.length || fragment.textContent.length || fragment.querySelector("img, input")) add(container, container.nodeType === Node.TEXT_NODE ? container.length : container.childNodes.length);
-    groups.push({ source: container, rows, todo: false });
+    groups.push({ source: container, rows, isList: false });
   };
   collect(noteArea);
   const touched = groups.filter((group) => group.rows.some((row) => row.selected));
   if (!touched.length) return false;
-  const remove = touched.every((group) => group.todo);
+  const remove = touched.every((group) => group.isList && group.type === type);
   const root = noteArea.cloneNode(true);
   const copyOf = (node) => {
     const path = [];
@@ -1120,13 +1192,18 @@ function convertSelectionToTodos(range) {
   };
   const changes = touched.map((group) => ({ group, copy: copyOf(group.source) }));
   for (const { group, copy } of changes) {
-    if (group.todo) {
-      if (remove) {
-        copy.removeAttribute("data-todo");
-        copy.removeAttribute("data-depth");
-        copy.style.removeProperty("margin-left");
-        copy.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => checkbox.remove());
+    if (group.isList) {
+      if (remove || group.type !== type) {
+        clearListItemAttributes(copy);
         if (!copy.hasChildNodes()) copy.append(document.createElement("br"));
+        if (!remove) {
+          const template = document.createElement("template");
+          template.innerHTML = createListItemMarkup("", Number(group.source.dataset.depth) || 0, false, type);
+          const row = template.content.firstElementChild;
+          row.lastChild.remove();
+          row.append(...copy.childNodes);
+          copy.replaceWith(row);
+        }
       }
       continue;
     }
@@ -1135,7 +1212,7 @@ function convertSelectionToTodos(range) {
       let element;
       if (row.selected) {
         const template = document.createElement("template");
-        template.innerHTML = todoMarkup();
+        template.innerHTML = createListItemMarkup("", 0, false, type);
         element = template.content.firstElementChild;
         element.lastChild.remove();
       } else {
@@ -1149,11 +1226,11 @@ function convertSelectionToTodos(range) {
     else copy.replaceWith(...rows);
   }
   for (const list of Array.from(root.querySelectorAll("ul, ol")).reverse()) {
-    if (!Array.from(list.children).some((child) => child.matches("[data-todo]"))) continue;
+    if (!Array.from(list.children).some((child) => child.matches(LIST_ITEM_SELECTOR))) continue;
     const parts = [];
     let remaining = list.cloneNode(false);
     for (const child of Array.from(list.childNodes)) {
-      if (child.nodeType === Node.ELEMENT_NODE && child.matches("[data-todo]")) {
+      if (child.nodeType === Node.ELEMENT_NODE && child.matches(LIST_ITEM_SELECTOR)) {
         if (remaining.hasChildNodes()) parts.push(remaining);
         parts.push(child);
         remaining = list.cloneNode(false);
@@ -1186,7 +1263,7 @@ function convertSelectionToTodos(range) {
     paragraph.append(node);
     return paragraph;
   });
-  insertTodoEdit(replacement, elements, 0, remove ? 0 : 1);
+  insertListItemEdit(replacement, elements, 0, remove ? 0 : 1);
   return true;
 }
 
@@ -1197,7 +1274,7 @@ noteArea.addEventListener("change", (event) => {
   }
 });
 
-function insertTodoEdit(range, rows, caretRow, caretOffset) {
+function insertListItemEdit(range, rows, caretRow, caretOffset) {
   const marker = document.createElement("span");
   marker.dataset.todoCaret = "true";
   rows[caretRow].insertBefore(marker, rows[caretRow].childNodes[caretOffset] || null);
@@ -1238,10 +1315,10 @@ function handleParagraphBackspace(event) {
   const range = selection.getRangeAt(0);
   const node = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
   const paragraph = node.closest("div, p, h1, h2");
-  if (!paragraph || paragraph === noteArea || !noteArea.contains(paragraph) || paragraph.closest("[data-todo]")) return false;
+  if (!paragraph || paragraph === noteArea || !noteArea.contains(paragraph) || paragraph.closest(LIST_ITEM_SELECTOR)) return false;
   let previous = paragraph.previousSibling;
   while (previous?.nodeType === Node.TEXT_NODE && !previous.textContent.replace(/\u200b/g, "").trim()) previous = previous.previousSibling;
-  if (!previous?.matches?.("[data-todo]")) return false;
+  if (!previous?.matches?.(LIST_ITEM_SELECTOR)) return false;
   const leading = document.createRange();
   leading.selectNodeContents(paragraph);
   leading.setEnd(range.startContainer, range.startOffset);
@@ -1258,12 +1335,12 @@ function handleParagraphBackspace(event) {
   const replacement = document.createRange();
   replacement.setStartBefore(previous);
   replacement.setEndAfter(paragraph);
-  insertTodoEdit(replacement, [merged], 0, caretOffset);
+  insertListItemEdit(replacement, [merged], 0, caretOffset);
   return true;
 }
 
-function handleTodoKey(event) {
-  const item = todoAtSelection();
+function handleListItemKey(event) {
+  const item = listItemAtSelection();
   if (!item || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return false;
   const selection = window.getSelection();
   if (!selection.rangeCount) return false;
@@ -1273,17 +1350,17 @@ function handleTodoKey(event) {
   before.selectNodeContents(item);
   before.setEnd(range.startContainer, range.startOffset);
   const leading = before.cloneContents();
-  leading.querySelectorAll("input, br").forEach((node) => node.remove());
+  leading.querySelectorAll("input, br, [data-bullet-marker]").forEach((node) => node.remove());
   if (event.key === "Backspace" && range.collapsed && !leading.textContent.length && !leading.querySelector("img")) {
     event.preventDefault();
     const plain = document.createElement("div");
     const content = item.cloneNode(true);
-    content.querySelectorAll('input[type="checkbox"]').forEach((node) => node.remove());
+    stripListPrefixes(content);
     plain.append(...content.childNodes);
     if (!plain.hasChildNodes()) plain.append(document.createElement("br"));
     const replacement = document.createRange();
     replacement.selectNode(item);
-    insertTodoEdit(replacement, [plain], 0, 0);
+    insertListItemEdit(replacement, [plain], 0, 0);
     return true;
   }
   if (event.key === "Tab") {
@@ -1294,7 +1371,7 @@ function handleTodoKey(event) {
     clone.style.marginLeft = `${depth * 24}px`;
     const replacement = document.createRange();
     replacement.selectNode(item);
-    insertTodoEdit(replacement, [clone], 0, clone.childNodes.length - (clone.lastChild?.nodeName === "BR" ? 1 : 0));
+    insertListItemEdit(replacement, [clone], 0, clone.childNodes.length - (clone.lastChild?.nodeName === "BR" ? 1 : 0));
     return true;
   }
   if (event.key !== "Enter" || event.shiftKey) return false;
@@ -1304,7 +1381,7 @@ function handleTodoKey(event) {
     plain.append(document.createElement("br"));
     const replacement = document.createRange();
     replacement.selectNode(item);
-    insertTodoEdit(replacement, [plain], 0, 0);
+    insertListItemEdit(replacement, [plain], 0, 0);
     return true;
   }
   const after = document.createRange();
@@ -1312,16 +1389,17 @@ function handleTodoKey(event) {
   after.setStart(range.endContainer, range.endOffset);
   const trailing = after.cloneContents();
   const first = item.cloneNode(false);
-  const checkbox = item.querySelector('input[type="checkbox"]');
-  first.append(checkbox ? checkbox.cloneNode(true) : document.createElement("br"));
+  const prefixNode = item.querySelector(LIST_PREFIX_SELECTOR);
+  first.append(prefixNode ? prefixNode.cloneNode(true) : document.createElement("br"));
   const head = before.cloneContents();
-  head.querySelectorAll('input[type="checkbox"]').forEach((node) => node.remove());
-  trailing.querySelectorAll('input[type="checkbox"]').forEach((node) => node.remove());
+  stripListPrefixes(head);
+  stripListPrefixes(trailing);
   if (head.lastChild?.nodeName === "BR") head.lastChild.remove();
   first.append(head);
   if (first.childNodes.length === 1) first.append(document.createElement("br"));
+  const currentType = getListItemType(item) || "todo";
   const template = document.createElement("template");
-  template.innerHTML = todoMarkup("", Number(item.dataset.depth) || 0);
+  template.innerHTML = createListItemMarkup("", Number(item.dataset.depth) || 0, false, currentType);
   const next = template.content.firstElementChild;
   if (trailing.hasChildNodes()) {
     next.lastChild.remove();
@@ -1329,7 +1407,7 @@ function handleTodoKey(event) {
   }
   const replacement = document.createRange();
   replacement.selectNode(item);
-  insertTodoEdit(replacement, [first, next], 1, 1);
+  insertListItemEdit(replacement, [first, next], 1, 1);
   return true;
 }
 
@@ -1340,10 +1418,18 @@ for (const action of ["copy", "cut"]) {
     const range = selection.getRangeAt(0);
     const container = document.createElement("div");
     container.append(range.cloneContents());
-    if (!container.querySelector("[data-todo], input[type=checkbox]")) return;
+    if (!container.querySelector(`${LIST_ITEM_SELECTOR}, ${LIST_PREFIX_SELECTOR}`)) return;
     event.preventDefault();
     event.clipboardData.setData("text/html", container.innerHTML);
-    container.querySelectorAll('input[type="checkbox"]').forEach((box) => box.replaceWith(document.createTextNode(box.hasAttribute("checked") ? "[x] " : "[ ] ")));
+    for (const config of Object.values(LIST_ITEM_REGISTRY)) {
+      if (config.toText && config.isPrefix) {
+        container.querySelectorAll("*").forEach((el) => {
+          if (config.isPrefix(el)) {
+            el.replaceWith(document.createTextNode(config.toText(el)));
+          }
+        });
+      }
+    }
     container.querySelectorAll("div").forEach((line) => line.append(document.createTextNode("\n")));
     event.clipboardData.setData("text/plain", container.textContent);
     if (action === "cut") {
@@ -1357,7 +1443,7 @@ noteArea.addEventListener("paste", (event) => {
   if (event.defaultPrevented) return;
   const html = event.clipboardData.getData("text/html");
   const doc = new DOMParser().parseFromString(html, "text/html");
-  if (!doc.querySelector("[data-todo], input[type=checkbox]")) return;
+  if (!doc.querySelector(`${LIST_ITEM_SELECTOR}, ${LIST_PREFIX_SELECTOR}`)) return;
   event.preventDefault();
   const allowed = new Set(["DIV", "P", "BR", "SPAN", "B", "STRONG", "I", "EM", "U", "S", "UL", "OL", "LI", "H1", "H2", "INPUT", "A", "IMG", "BLOCKQUOTE", "PRE", "CODE", "TABLE", "TBODY", "TR", "TD", "TH"]);
   doc.body.querySelectorAll("script, style, iframe, object").forEach((node) => node.remove());
@@ -1366,7 +1452,8 @@ noteArea.addEventListener("paste", (event) => {
       node.replaceWith(...node.childNodes);
       continue;
     }
-    const todo = node.hasAttribute("data-todo");
+    const detectedType = getListItemType(node);
+    const marker = node.hasAttribute("data-bullet-marker");
     const depth = Math.max(0, Math.min(12, Number(node.dataset.depth) || 0));
     const checked = node.hasAttribute("checked");
     const checkbox = node.matches('input[type="checkbox"]');
@@ -1391,8 +1478,10 @@ noteArea.addEventListener("paste", (event) => {
       node.setAttribute("aria-label", "Complete task");
       node.toggleAttribute("checked", checked);
     }
-    if (todo) {
-      node.dataset.todo = "true";
+    if (marker && node.tagName === "SPAN") node.replaceWith(bulletMarker());
+    if (detectedType) {
+      const config = LIST_ITEM_REGISTRY[detectedType];
+      node.setAttribute(config.attr, "true");
       node.dataset.depth = String(depth);
       node.style.marginLeft = `${depth * 24}px`;
     }
@@ -1400,3 +1489,27 @@ noteArea.addEventListener("paste", (event) => {
   document.execCommand("insertHTML", false, doc.body.innerHTML);
   triggerSave();
 });
+
+function todoAtSelection() {
+  return listItemAtSelection();
+}
+
+function todoMarkup(text = "", depth = 0, checked = false, type = "todo") {
+  return createListItemMarkup(text, depth, checked, type);
+}
+
+function toggleList(type) {
+  return toggleListItem(type);
+}
+
+function convertSelectionToTodos(range, type = "todo") {
+  return convertSelectionToListItems(range, type);
+}
+
+function handleTodoKey(event) {
+  return handleListItemKey(event);
+}
+
+function insertTodoEdit(range, rows, caretRow, caretOffset) {
+  return insertListItemEdit(range, rows, caretRow, caretOffset);
+}
