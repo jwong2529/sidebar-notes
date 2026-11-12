@@ -25,6 +25,7 @@
   --color-image-shadow: rgba(0, 0, 0, 0.8);
   --color-note-hover: rgba(143, 143, 157, 0.12);
   --color-note-selected: rgba(143, 143, 157, 0.2);
+  --color-favorite: #f5a623;
 }
 
 body.dark-theme {
@@ -54,4 +55,5 @@ body.dark-theme {
   --color-image-shadow: rgba(0, 0, 0, 0.8);
   --color-note-hover: rgba(143, 143, 157, 0.12);
   --color-note-selected: rgba(143, 143, 157, 0.2);
+  --color-favorite: #ffb833;
 }

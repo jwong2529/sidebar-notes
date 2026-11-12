@@ -124,6 +124,24 @@
   color: var(--color-danger);
 }
 
+.folder-action-btn.favorite-action-btn.favorited {
+  color: var(--color-favorite);
+  opacity: 1;
+}
+
+.folder-action-btn.favorite-action-btn.favorited:hover,
+.folder-action-btn.favorite-action-btn.favorited:focus,
+.folder-action-btn.favorite-action-btn.favorited:active {
+  color: var(--color-favorite);
+}
+
+.favorites-heading .folder-toggle svg.favorites-icon {
+  color: var(--color-favorite);
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+}
+
 .folder-heading:hover .folder-action-btn,
 .folder-heading:focus-within .folder-action-btn {
   opacity: 1;

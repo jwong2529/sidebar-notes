@@ -170,6 +170,22 @@ button.icon-btn {
   border-radius: 4px;
 }
 
+#favorite-btn .star-filled {
+  display: none;
+}
+
+#favorite-btn.favorited .star-outline {
+  display: none;
+}
+
+#favorite-btn.favorited .star-filled {
+  display: block;
+}
+
+#favorite-btn.favorited {
+  color: var(--color-favorite);
+}
+
 button .sun-icon {
   display: block;
 }

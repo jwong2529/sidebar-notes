@@ -19,6 +19,7 @@ export const dom = {
   noteSearch: document.getElementById("note-search"),
   newFolderBtn: document.getElementById("new-folder-btn"),
   noteTitleText: document.getElementById("note-title-text"),
+  favoriteBtn: document.getElementById("favorite-btn"),
   renameBtn: document.getElementById("rename-btn"),
   boldBtn: document.getElementById("bold-btn"),
   italicBtn: document.getElementById("italic-btn"),

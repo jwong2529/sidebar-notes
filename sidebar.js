@@ -7,6 +7,16 @@ import { initEditor, updateFormatIndicators, closeFormatMenus, positionFormatMen
 import { initImages } from "./modules/images.js";
 import { initTree, renderNoteList, closeNoteMenu, deleteNote } from "./modules/tree.js";
 
+export function updateFavoriteButton(note) {
+  if (!dom.favoriteBtn) {
+    return;
+  }
+  const isFav = Boolean(note?.favorite);
+  dom.favoriteBtn.classList.toggle("favorited", isFav);
+  dom.favoriteBtn.title = isFav ? "Unfavorite note" : "Favorite note";
+  dom.favoriteBtn.setAttribute("aria-label", dom.favoriteBtn.title);
+}
+
 export function selectNote(id) {
   state.editorRevision += 1;
   state.selectedImage = null;
@@ -15,6 +25,7 @@ export function selectNote(id) {
   const note = state.notes.find((n) => n.id === id);
   if (note) {
     dom.noteTitleText.textContent = note.title;
+    updateFavoriteButton(note);
     const parser = new DOMParser();
     const doc = parser.parseFromString(note.content || "", "text/html");
     doc.body.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => checkbox.removeAttribute("contenteditable"));
@@ -24,16 +35,28 @@ export function selectNote(id) {
     }
   } else {
     dom.noteTitleText.textContent = "Untitled Note";
+    updateFavoriteButton(null);
     dom.noteArea.replaceChildren();
   }
   renderNoteList();
   updateFormatIndicators();
 }
 
+dom.favoriteBtn.addEventListener("click", () => {
+  const note = state.notes.find((n) => n.id === state.activeNoteId);
+  if (note) {
+    note.favorite = !note.favorite;
+    updateFavoriteButton(note);
+    renderNoteList();
+    triggerSave();
+  }
+});
+
 dom.renameBtn.addEventListener("click", () => {
   const note = state.notes.find((n) => n.id === state.activeNoteId);
   if (note && !document.querySelector(".title-name-input")) {
     dom.noteTitleText.hidden = true;
+    dom.favoriteBtn.hidden = true;
     dom.renameBtn.hidden = true;
     const input = document.createElement("input");
     input.className = "inline-name-input title-name-input";
@@ -46,6 +69,7 @@ dom.renameBtn.addEventListener("click", () => {
       const name = input.value.trim();
       input.remove();
       dom.noteTitleText.hidden = false;
+      dom.favoriteBtn.hidden = false;
       dom.renameBtn.hidden = false;
       if (save && name) {
         note.title = name;

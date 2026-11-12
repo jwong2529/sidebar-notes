@@ -48,7 +48,7 @@ export async function loadStorage() {
     const lastActive = state.notes.find((n) => n.id === result.activeNoteId);
     state.activeNoteId = lastActive ? lastActive.id : state.notes[0].id;
   } else {
-    state.notes = [{ id: "default", title: "My Note", content: "" }];
+    state.notes = [{ id: "default", title: "My Note", content: "", favorite: false }];
     state.activeNoteId = "default";
   }
   return result;
