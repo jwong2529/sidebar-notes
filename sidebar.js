@@ -34,6 +34,7 @@ let folders = [];
 let activeNoteId = null;
 let selectedImage = null;
 let draggedNoteId = null;
+let draggedNoteIds = [];
 let draggedFolderId = null;
 let pendingDelete = null;
 let dialogAnchor = null;
@@ -41,6 +42,8 @@ let dialogReturnFocus = null;
 let statusHideTimeout = null;
 let editorRevision = 0;
 const collapsedFolders = new Set();
+const selectedNoteIds = new Set();
+let selectionAnchorId = null;
 
 function updateStatus(text) {
   clearTimeout(statusHideTimeout);
@@ -280,7 +283,7 @@ function renderNoteList() {
         heading.classList.remove("folder-drop-before", "folder-drop-after");
         const rect = heading.getBoundingClientRect();
         heading.classList.add(event.clientY < rect.top + rect.height / 2 ? "folder-drop-before" : "folder-drop-after");
-      } else if (draggedNoteId) {
+      } else if (draggedNoteIds.length || draggedNoteId) {
         event.preventDefault();
         event.dataTransfer.dropEffect = "move";
         heading.classList.add("drop-target");
@@ -299,8 +302,8 @@ function renderNoteList() {
       if (draggedFolderId && folder.id && draggedFolderId !== folder.id) {
         const rect = heading.getBoundingClientRect();
         reorderFolder(draggedFolderId, folder.id, event.clientY >= rect.top + rect.height / 2);
-      } else if (draggedNoteId) {
-        moveNoteToFolder(draggedNoteId, folder.id);
+      } else if (draggedNoteIds.length || draggedNoteId) {
+        moveNotesToFolder(draggedNoteIds.length ? draggedNoteIds : [draggedNoteId], folder.id);
       }
       heading.classList.remove("folder-drop-before", "folder-drop-after");
     });
@@ -365,6 +368,7 @@ function renderNoteList() {
       matchingNotes.forEach((note) => {
         const row = document.createElement("div");
         row.className = "note-row";
+        row.dataset.noteId = note.id;
         row.draggable = true;
         row.addEventListener("dragstart", (event) => {
           if (event.target.closest(".note-actions")) {
@@ -372,20 +376,26 @@ function renderNoteList() {
             return;
           }
           draggedNoteId = note.id;
+          draggedNoteIds = selectedNoteIds.has(note.id) ? [...selectedNoteIds] : [note.id];
           row.classList.add("dragging");
           event.dataTransfer.effectAllowed = "move";
           event.dataTransfer.setData("text/plain", note.id);
         });
         row.addEventListener("dragend", () => {
           draggedNoteId = null;
+          draggedNoteIds = [];
           row.classList.remove("dragging");
           dropdownItems.querySelectorAll(".drop-target").forEach((target) => target.classList.remove("drop-target"));
           dropdownItems.querySelectorAll(".drop-before, .drop-after").forEach((target) => target.classList.remove("drop-before", "drop-after"));
         });
         const item = document.createElement("button");
         item.className = "dropdown-item note-item";
+        if (selectedNoteIds.has(note.id)) {
+          item.classList.add("selected-note");
+          item.setAttribute("aria-pressed", "true");
+        }
         row.addEventListener("dragover", (event) => {
-          if (!draggedNoteId || draggedNoteId === note.id) {
+          if (!draggedNoteId || draggedNoteIds.includes(note.id)) {
             return;
           }
           event.preventDefault();
@@ -405,7 +415,7 @@ function renderNoteList() {
           event.stopPropagation();
           const rect = row.getBoundingClientRect();
           const after = event.clientY >= rect.top + rect.height / 2;
-          moveNoteToFolder(draggedNoteId, note.folderId || "", note.id, after);
+          moveNotesToFolder(draggedNoteIds, note.folderId || "", note.id, after);
         });
         if (note.id === activeNoteId) {
           item.classList.add("current-note");
@@ -440,9 +450,35 @@ function renderNoteList() {
         deleteNoteBtn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M6 4.5V3h4v1.5m2 0-.5 8.5h-7L4 4.5m3 2v4m2-4v4"></path></svg>';
         deleteNoteBtn.addEventListener("click", () => deleteNote(note));
         actions.append(renameNoteBtn, deleteNoteBtn);
-        item.addEventListener("click", () => {
-          selectNote(note.id);
-          dropdownMenu.classList.add("hidden");
+        item.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const additive = event.metaKey || event.ctrlKey;
+          if (event.shiftKey) {
+            const visibleIds = [...dropdownItems.querySelectorAll(".note-row")].map((row) => row.dataset.noteId);
+            const anchor = visibleIds.includes(selectionAnchorId) ? selectionAnchorId : activeNoteId;
+            const start = visibleIds.indexOf(anchor);
+            const end = visibleIds.indexOf(note.id);
+            if (!additive) selectedNoteIds.clear();
+            visibleIds.slice(start < 0 ? end : Math.min(start, end), start < 0 ? end + 1 : Math.max(start, end) + 1)
+              .forEach((id) => selectedNoteIds.add(id));
+            selectionAnchorId = start < 0 ? note.id : anchor;
+          } else if (additive) {
+            if (selectedNoteIds.has(note.id)) {
+              selectedNoteIds.delete(note.id);
+            } else {
+              selectedNoteIds.add(note.id);
+            }
+            selectionAnchorId = note.id;
+          } else {
+            selectNote(note.id);
+            closeNoteMenu();
+          }
+          dropdownItems.querySelectorAll(".note-row").forEach((row) => {
+            const button = row.querySelector(".note-item");
+            const selected = selectedNoteIds.has(row.dataset.noteId);
+            button.classList.toggle("selected-note", selected);
+            button.setAttribute("aria-pressed", String(selected));
+          });
         });
         row.append(item, actions);
         group.appendChild(row);
@@ -453,24 +489,23 @@ function renderNoteList() {
 
 }
 
-function moveNoteToFolder(noteId, folderId, targetNoteId = null, after = true) {
-  const note = notes.find((item) => item.id === noteId);
-  if (!note || noteId === targetNoteId) {
+function moveNotesToFolder(noteIds, folderId, targetNoteId = null, after = true) {
+  const ids = new Set(noteIds);
+  const movingNotes = notes.filter((note) => ids.has(note.id));
+  if (movingNotes.length === 0 || ids.has(targetNoteId) || (targetNoteId && !notes.some((note) => note.id === targetNoteId))) {
     return;
   }
-  if (targetNoteId && !notes.some((item) => item.id === targetNoteId)) {
-    return;
-  }
+  notes = notes.filter((note) => !ids.has(note.id));
+  movingNotes.forEach((note) => {
+    note.folderId = folderId;
+    selectedNoteIds.delete(note.id);
+  });
+  selectionAnchorId = null;
+  const lastFolderIndex = notes.map((note) => note.folderId || "").lastIndexOf(folderId);
+  const insertionIndex = targetNoteId ? notes.findIndex((note) => note.id === targetNoteId) + (after ? 1 : 0) : lastFolderIndex + 1;
+  notes.splice(insertionIndex, 0, ...movingNotes);
   draggedNoteId = null;
-  notes = notes.filter((item) => item.id !== noteId);
-  note.folderId = folderId;
-  if (targetNoteId) {
-    const targetIndex = notes.findIndex((item) => item.id === targetNoteId);
-    notes.splice(targetIndex + (after ? 1 : 0), 0, note);
-  } else {
-    const lastFolderIndex = notes.map((item) => item.folderId || "").lastIndexOf(folderId);
-    notes.splice(lastFolderIndex + 1, 0, note);
-  }
+  draggedNoteIds = [];
   renderNoteList();
   triggerSave();
 }
@@ -537,6 +572,7 @@ function deleteFolder(folder) {
 
 function deleteNote(note) {
   showActionDialog("Delete note?", `Delete “${note.title || "Untitled Note"}”?`, () => {
+    selectedNoteIds.delete(note.id);
     notes = notes.filter((item) => item.id !== note.id);
     if (notes.length === 0) {
       notes = [{ id: "default", title: "My Note", content: "", folderId: "" }];
@@ -550,7 +586,30 @@ function deleteNote(note) {
   });
 }
 
-noteSearch.addEventListener("input", renderNoteList);
+function clearNoteSelection() {
+  selectedNoteIds.clear();
+  selectionAnchorId = null;
+  dropdownItems.querySelectorAll(".note-item").forEach((item) => {
+    item.classList.remove("selected-note");
+    item.setAttribute("aria-pressed", "false");
+  });
+}
+
+function closeNoteMenu() {
+  dropdownMenu.classList.add("hidden");
+  clearNoteSelection();
+  draggedNoteId = null;
+  draggedNoteIds = [];
+  draggedFolderId = null;
+  dropdownItems.querySelectorAll(".dragging, .drop-target, .drop-before, .drop-after, .folder-drop-before, .folder-drop-after").forEach((item) => {
+    item.classList.remove("dragging", "drop-target", "drop-before", "drop-after", "folder-drop-before", "folder-drop-after");
+  });
+}
+
+noteSearch.addEventListener("input", () => {
+  clearNoteSelection();
+  renderNoteList();
+});
 newFolderBtn.addEventListener("click", createFolder);
 
 dropdownMenu.addEventListener("click", (event) => {
@@ -562,8 +621,12 @@ menuBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     return;
   }
-  dropdownMenu.classList.toggle("hidden");
-  positionSearchMenu();
+  if (dropdownMenu.classList.contains("hidden")) {
+    dropdownMenu.classList.remove("hidden");
+    positionSearchMenu();
+  } else {
+    closeNoteMenu();
+  }
   e.stopPropagation();
 });
 
@@ -572,7 +635,7 @@ document.addEventListener("click", (e) => {
     return;
   }
   if (!dropdownMenu.contains(e.target) && e.target !== menuBtn) {
-    dropdownMenu.classList.add("hidden");
+    closeNoteMenu();
   }
 });
 
@@ -591,7 +654,7 @@ document.addEventListener("keydown", (event) => {
     closeDeleteConfirmation();
   } else if (event.key === "Escape" && !dropdownMenu.classList.contains("hidden")) {
     event.preventDefault();
-    dropdownMenu.classList.add("hidden");
+    closeNoteMenu();
     menuBtn.focus();
   }
 });
@@ -631,7 +694,7 @@ function addNote() {
 
 addBtn.addEventListener("click", () => {
   addNote();
-  dropdownMenu.classList.add("hidden");
+  closeNoteMenu();
 });
 
 renameBtn.addEventListener("click", () => {

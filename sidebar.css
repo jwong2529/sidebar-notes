@@ -319,7 +319,7 @@ body.dark-theme .note-title-text {
 .note-row .note-item {
   width: auto;
   display: block;
-  padding-left: 26px;
+  padding-left: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -885,15 +885,24 @@ body.dark-theme .delete-confirm-actions button.danger {
   color: #ff8484;
 }
 
-body .note-item.current-note,
-body .note-item.current-note:hover,
-body .note-item.current-note:active,
-body.dark-theme .note-item.current-note,
-body.dark-theme .note-item.current-note:hover,
-body.dark-theme .note-item.current-note:active {
-  background: transparent;
+body .note-row .note-item {
+  background: transparent !important;
   box-shadow: none;
-  border-color: transparent;
+  border-radius: 4px;
+}
+
+body .note-row .note-item:hover {
+  background: rgba(143, 143, 157, 0.12) !important;
+}
+
+body .note-row .note-item.selected-note {
+  background: rgba(143, 143, 157, 0.2) !important;
+  box-shadow: inset 0 0 0 1px #8f8f9d;
+}
+
+body .note-row .note-item:focus-visible {
+  outline: 2px solid #0a84ff;
+  outline-offset: -2px;
 }
 
 body .delete-confirm-actions button.danger:hover,
