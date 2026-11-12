@@ -1,4 +1,6 @@
 const noteArea = document.getElementById("note-area");
+const editorPane = document.querySelector(".editor-pane");
+const imageResizeHandle = document.getElementById("image-resize-handle");
 const statusBar = document.getElementById("status-bar");
 const themeBtn = document.getElementById("theme-btn");
 const exportBtn = document.getElementById("export-btn");
@@ -21,6 +23,7 @@ const h2Btn = document.getElementById("h2-btn");
 let saveTimeout = null;
 let notes = [];
 let activeNoteId = null;
+let selectedImage = null;
 
 function updateStatus(text) {
   statusBar.textContent = text;
@@ -132,6 +135,8 @@ document.addEventListener("click", (e) => {
 });
 
 function selectNote(id) {
+  selectedImage = null;
+  imageResizeHandle.classList.add("hidden");
   activeNoteId = id;
   const note = notes.find((n) => n.id === id);
   if (note) {
@@ -216,6 +221,152 @@ function triggerSave() {
 }
 
 noteArea.addEventListener("input", triggerSave);
+
+function getEditorRangeAtPoint(x, y) {
+  if (document.caretRangeFromPoint) {
+    return document.caretRangeFromPoint(x, y);
+  }
+  if (document.caretPositionFromPoint) {
+    const position = document.caretPositionFromPoint(x, y);
+    const range = document.createRange();
+    range.setStart(position.offsetNode, position.offset);
+    range.collapse(true);
+    return range;
+  }
+  return null;
+}
+
+function getEditorRange() {
+  const selection = window.getSelection();
+  if (selection.rangeCount > 0 && noteArea.contains(selection.anchorNode)) {
+    return selection.getRangeAt(0).cloneRange();
+  }
+  const range = document.createRange();
+  range.selectNodeContents(noteArea);
+  range.collapse(false);
+  return range;
+}
+
+function insertImageFiles(files, range) {
+  const imageFiles = Array.from(files).filter((file) => file.type.startsWith("image/"));
+  if (imageFiles.length === 0) {
+    return false;
+  }
+
+  const targetRange = range || getEditorRange();
+  imageFiles.reduce((promise, file) => promise.then(() => new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      if (typeof reader.result === "string" && noteArea.contains(targetRange.commonAncestorContainer)) {
+        const image = document.createElement("img");
+        image.src = reader.result;
+        image.alt = file.name || "Pasted image";
+        image.addEventListener("load", positionImageResizeHandle, { once: true });
+        targetRange.deleteContents();
+        targetRange.insertNode(image);
+        targetRange.setStartAfter(image);
+        targetRange.collapse(true);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(targetRange);
+        noteArea.focus();
+        selectImage(image);
+        triggerSave();
+      }
+      resolve();
+    });
+    reader.addEventListener("error", () => resolve());
+    reader.readAsDataURL(file);
+  })), Promise.resolve());
+
+  return true;
+}
+
+noteArea.addEventListener("paste", (event) => {
+  const files = Array.from(event.clipboardData.items)
+    .filter((item) => item.kind === "file")
+    .map((item) => item.getAsFile())
+    .filter(Boolean);
+  if (files.some((file) => file.type.startsWith("image/"))) {
+    event.preventDefault();
+    insertImageFiles(files, getEditorRange());
+  }
+});
+
+noteArea.addEventListener("dragover", (event) => {
+  if (Array.from(event.dataTransfer.items).some((item) => item.kind === "file" && item.type.startsWith("image/"))) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }
+});
+
+noteArea.addEventListener("drop", (event) => {
+  const files = Array.from(event.dataTransfer.files);
+  if (files.some((file) => file.type.startsWith("image/"))) {
+    event.preventDefault();
+    event.stopPropagation();
+    const range = getEditorRangeAtPoint(event.clientX, event.clientY);
+    insertImageFiles(files, range && noteArea.contains(range.commonAncestorContainer) ? range : getEditorRange());
+  }
+});
+
+function positionImageResizeHandle() {
+  if (!selectedImage || !noteArea.contains(selectedImage)) {
+    imageResizeHandle.classList.add("hidden");
+    return;
+  }
+  imageResizeHandle.classList.remove("hidden");
+  const imageRect = selectedImage.getBoundingClientRect();
+  const paneRect = editorPane.getBoundingClientRect();
+  imageResizeHandle.style.left = `${imageRect.right - paneRect.left - imageResizeHandle.offsetWidth / 2}px`;
+  imageResizeHandle.style.top = `${imageRect.bottom - paneRect.top - imageResizeHandle.offsetHeight / 2}px`;
+}
+
+function selectImage(image) {
+  selectedImage = image;
+  positionImageResizeHandle();
+}
+
+noteArea.addEventListener("click", (event) => {
+  if (event.target instanceof HTMLImageElement) {
+    selectImage(event.target);
+  } else {
+    selectedImage = null;
+    imageResizeHandle.classList.add("hidden");
+  }
+});
+
+noteArea.addEventListener("scroll", positionImageResizeHandle);
+window.addEventListener("resize", positionImageResizeHandle);
+
+imageResizeHandle.addEventListener("pointerdown", (event) => {
+  if (!selectedImage) {
+    return;
+  }
+  event.preventDefault();
+  const startX = event.clientX;
+  const startWidth = selectedImage.getBoundingClientRect().width;
+  const image = selectedImage;
+  imageResizeHandle.setPointerCapture(event.pointerId);
+
+  const resize = (pointerEvent) => {
+    const maxWidth = Math.max(1, noteArea.clientWidth - 16);
+    const width = Math.min(maxWidth, Math.max(48, startWidth + pointerEvent.clientX - startX));
+    image.style.width = `${width}px`;
+    positionImageResizeHandle();
+  };
+
+  const finishResize = () => {
+    imageResizeHandle.removeEventListener("pointermove", resize);
+    imageResizeHandle.removeEventListener("pointerup", finishResize);
+    imageResizeHandle.removeEventListener("pointercancel", finishResize);
+    triggerSave();
+  };
+
+  imageResizeHandle.addEventListener("pointermove", resize);
+  imageResizeHandle.addEventListener("pointerup", finishResize);
+  imageResizeHandle.addEventListener("pointercancel", finishResize);
+});
 
 exportBtn.addEventListener("click", () => {
   const note = notes.find((n) => n.id === activeNoteId);

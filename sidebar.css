@@ -135,6 +135,39 @@ body.dark-theme .dropdown-divider {
   min-height: 0;
 }
 
+.image-resize-handle {
+  position: absolute;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 1px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #ffffff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.image-resize-handle svg {
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+}
+
+.image-resize-handle:hover {
+  background: transparent;
+  color: #ffffff;
+}
+
+.image-resize-handle.hidden {
+  display: none;
+}
+
 .toolbar {
   display: flex;
   flex-direction: column;
@@ -304,6 +337,12 @@ button.danger:active {
 #note-area h2 {
   font-size: 16px;
   margin: 8px 0 4px 0;
+}
+
+#note-area img {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
 }
 
 #status-bar {
