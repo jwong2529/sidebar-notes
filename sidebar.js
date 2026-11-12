@@ -1009,6 +1009,12 @@ noteArea.addEventListener("mousedown", (event) => {
 });
 todoBtn.addEventListener("click", () => {
   noteArea.focus();
+  const selectedRange = getEditorRange();
+  if (selectedRange.collapsed && todoAtSelection()) {
+    selectedRange.selectNodeContents(todoAtSelection());
+    if (convertSelectionToTodos(selectedRange)) return;
+  }
+  if (!selectedRange.collapsed && convertSelectionToTodos(selectedRange)) return;
   const template = document.createElement("template");
   template.innerHTML = todoMarkup();
   const row = template.content.firstElementChild;
@@ -1025,6 +1031,164 @@ todoBtn.addEventListener("click", () => {
   }
   insertTodoEdit(range, [row], 0, 1);
 });
+
+function convertSelectionToTodos(range) {
+  if (!noteArea.contains(range.startContainer) || !noteArea.contains(range.endContainer)) return false;
+  const blockSelector = "div, p, h1, h2, h3, h4, h5, h6, ul, ol, li, blockquote, pre";
+  const groups = [];
+  const compare = (leftNode, leftOffset, rightNode, rightOffset) => {
+    const normalize = (node, offset) => {
+      while (node !== noteArea) {
+        const length = node.nodeType === Node.TEXT_NODE ? node.length : node.childNodes.length;
+        if (offset !== 0 && offset !== length) break;
+        const index = Array.prototype.indexOf.call(node.parentNode.childNodes, node);
+        offset = index + (offset === 0 ? 0 : 1);
+        node = node.parentNode;
+      }
+      return [node, offset];
+    };
+    [leftNode, leftOffset] = normalize(leftNode, leftOffset);
+    [rightNode, rightOffset] = normalize(rightNode, rightOffset);
+    const left = document.createRange();
+    const right = document.createRange();
+    left.setStart(leftNode, leftOffset);
+    right.setStart(rightNode, rightOffset);
+    left.collapse(true);
+    right.collapse(true);
+    return left.compareBoundaryPoints(Range.START_TO_START, right);
+  };
+  const touches = (row) => compare(range.startContainer, range.startOffset, row.endContainer, row.endOffset) < 0
+    && compare(range.endContainer, range.endOffset, row.startContainer, row.startOffset) > 0;
+  const collect = (container) => {
+    if (container.matches?.("[data-todo]")) {
+      const row = document.createRange();
+      row.selectNodeContents(container);
+      groups.push({ source: container, rows: [{ range: row, selected: touches(row) }], todo: true });
+      return;
+    }
+    if (container.querySelector?.(blockSelector)) {
+      for (const child of container.childNodes) {
+        if (child.nodeType === Node.ELEMENT_NODE || (child.nodeType === Node.TEXT_NODE && child.textContent.length)) collect(child);
+      }
+      return;
+    }
+    const rows = [];
+    let startNode = container;
+    let startOffset = 0;
+    const add = (endNode, endOffset, nextNode, nextOffset) => {
+      const row = document.createRange();
+      row.setStart(startNode, startOffset);
+      row.setEnd(endNode, endOffset);
+      const hit = row.cloneRange();
+      if (nextNode) hit.setEnd(nextNode, nextOffset);
+      rows.push({ range: row, selected: touches(hit) });
+      startNode = nextNode || endNode;
+      startOffset = nextNode ? nextOffset : endOffset;
+    };
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+    let node = container.nodeType === Node.TEXT_NODE ? container : walker.nextNode();
+    while (node) {
+      if (node.nodeName === "BR") {
+        const index = Array.prototype.indexOf.call(node.parentNode.childNodes, node);
+        add(node.parentNode, index, node.parentNode, index + 1);
+      } else if (node.nodeType === Node.TEXT_NODE) {
+        for (let offset = 0; offset < node.length; offset++) {
+          if (node.data[offset] === "\n") add(node, offset, node, offset + 1);
+        }
+      }
+      node = walker.nextNode();
+    }
+    const tail = document.createRange();
+    tail.setStart(startNode, startOffset);
+    tail.setEnd(container, container.nodeType === Node.TEXT_NODE ? container.length : container.childNodes.length);
+    const fragment = tail.cloneContents();
+    if (!rows.length || fragment.textContent.length || fragment.querySelector("img, input")) add(container, container.nodeType === Node.TEXT_NODE ? container.length : container.childNodes.length);
+    groups.push({ source: container, rows, todo: false });
+  };
+  collect(noteArea);
+  const touched = groups.filter((group) => group.rows.some((row) => row.selected));
+  if (!touched.length) return false;
+  const remove = touched.every((group) => group.todo);
+  const root = noteArea.cloneNode(true);
+  const copyOf = (node) => {
+    const path = [];
+    while (node !== noteArea) {
+      path.unshift(Array.prototype.indexOf.call(node.parentNode.childNodes, node));
+      node = node.parentNode;
+    }
+    return path.reduce((copy, index) => copy.childNodes[index], root);
+  };
+  const changes = touched.map((group) => ({ group, copy: copyOf(group.source) }));
+  for (const { group, copy } of changes) {
+    if (group.todo) {
+      if (remove) {
+        copy.removeAttribute("data-todo");
+        copy.removeAttribute("data-depth");
+        copy.style.removeProperty("margin-left");
+        copy.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => checkbox.remove());
+        if (!copy.hasChildNodes()) copy.append(document.createElement("br"));
+      }
+      continue;
+    }
+    const rows = group.rows.map((row) => {
+      const content = row.range.cloneContents();
+      let element;
+      if (row.selected) {
+        const template = document.createElement("template");
+        template.innerHTML = todoMarkup();
+        element = template.content.firstElementChild;
+        element.lastChild.remove();
+      } else {
+        element = document.createElement(group.source === noteArea || !group.source.localName ? "div" : group.source.localName);
+      }
+      element.append(content);
+      if (!content.textContent && !element.querySelector("img, br") && element.childNodes.length <= (row.selected ? 1 : 0)) element.append(document.createElement("br"));
+      return element;
+    });
+    if (copy === root) root.replaceChildren(...rows);
+    else copy.replaceWith(...rows);
+  }
+  for (const list of Array.from(root.querySelectorAll("ul, ol")).reverse()) {
+    if (!Array.from(list.children).some((child) => child.matches("[data-todo]"))) continue;
+    const parts = [];
+    let remaining = list.cloneNode(false);
+    for (const child of Array.from(list.childNodes)) {
+      if (child.nodeType === Node.ELEMENT_NODE && child.matches("[data-todo]")) {
+        if (remaining.hasChildNodes()) parts.push(remaining);
+        parts.push(child);
+        remaining = list.cloneNode(false);
+      } else remaining.append(child);
+    }
+    if (remaining.hasChildNodes()) parts.push(remaining);
+    list.replaceWith(...parts);
+  }
+  const top = (node) => {
+    if (node === noteArea) return node;
+    while (node.parentNode !== noteArea) node = node.parentNode;
+    return node;
+  };
+  const first = top(touched[0].source);
+  const last = top(touched[touched.length - 1].source);
+  const replacement = document.createRange();
+  if (first === noteArea) replacement.selectNodeContents(noteArea);
+  else {
+    replacement.setStartBefore(first);
+    replacement.setEndAfter(last);
+  }
+  const start = first === noteArea ? 0 : Array.prototype.indexOf.call(noteArea.childNodes, first);
+  const end = first === noteArea ? noteArea.childNodes.length : Array.prototype.indexOf.call(noteArea.childNodes, last) + 1;
+  const beforeCount = start;
+  const afterCount = noteArea.childNodes.length - end;
+  const rows = Array.from(root.childNodes).slice(beforeCount, root.childNodes.length - afterCount);
+  const elements = rows.map((node) => {
+    if (node.nodeType === Node.ELEMENT_NODE) return node;
+    const paragraph = document.createElement("div");
+    paragraph.append(node);
+    return paragraph;
+  });
+  insertTodoEdit(replacement, elements, 0, remove ? 0 : 1);
+  return true;
+}
 
 noteArea.addEventListener("change", (event) => {
   if (event.target.matches('input[type="checkbox"]')) {
