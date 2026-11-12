@@ -20,6 +20,16 @@
               </svg>
             </button>
             <div id="dropdown-menu" class="dropdown-menu hidden">
+              <input id="note-search" class="note-search" type="search" placeholder="Search notes">
+              <div class="folder-list-header">
+                <span>Folders</span>
+                <button id="new-folder-btn" class="new-folder-btn" type="button" title="Create folder">
+                  <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                    <path d="M8 3v10M3 8h10"></path>
+                  </svg>
+                  <span>New Folder</span>
+                </button>
+              </div>
               <div class="dropdown-items" id="dropdown-items"></div>
               <div class="dropdown-divider"></div>
               <button id="add-btn" class="dropdown-item add-note-btn">
@@ -99,6 +109,17 @@
       </button>
     </div>
     <div id="status-bar">Saved</div>
+  </div>
+  <div id="delete-confirmation" class="delete-confirmation hidden" role="alertdialog" aria-modal="true" aria-labelledby="delete-confirm-title">
+    <div class="delete-confirm-card">
+      <div id="delete-confirm-title" class="delete-confirm-title">Delete item?</div>
+      <div id="delete-confirm-message" class="delete-confirm-message"></div>
+      <input id="action-dialog-input" class="inline-name-input hidden" type="text">
+      <div class="delete-confirm-actions">
+        <button id="delete-cancel-btn" type="button">Cancel</button>
+        <button id="delete-confirm-btn" class="danger" type="button">Delete</button>
+      </div>
+    </div>
   </div>
   <script src="sidebar.js"></script>
 </body>

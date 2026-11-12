@@ -1,3 +1,7 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -24,6 +28,7 @@ body.dark-theme {
 
 .header-group {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 6px;
   position: relative;
@@ -33,17 +38,46 @@ body.dark-theme {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex-grow: 1;
+  flex: 1 1 28px;
+  min-width: 28px;
   overflow: hidden;
 }
 
 .note-title-text {
+  min-width: 0;
+  flex: 1;
   font-size: 13px;
   font-weight: 600;
   color: #15141a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.inline-name-input {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid #8f8f9d;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #15141a;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.title-name-input {
+  width: min(180px, 100%);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+body.dark-theme .inline-name-input {
+  border-color: #5b5b66;
+  background: #1c1b22;
+  color: #f9f9fb;
 }
 
 body.dark-theme .note-title-text {
@@ -59,7 +93,13 @@ body.dark-theme .note-title-text {
   border: 1px solid #d7d7db;
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  min-width: 150px;
+  min-width: 0;
+  width: min(320px, calc(100vw - 16px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
   z-index: 100;
   padding: 4px 0;
   display: flex;
@@ -71,8 +111,250 @@ body.dark-theme .note-title-text {
 }
 
 .dropdown-items {
-  max-height: 200px;
-  overflow-y: auto;
+  overflow: visible;
+  min-width: 0;
+}
+
+.dropdown-menu > * {
+  flex-shrink: 0;
+}
+
+.note-search {
+  min-width: 0;
+  margin: 4px 8px 6px;
+  padding: 6px 8px;
+  border: 1px solid #d7d7db;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #15141a;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.note-search:focus {
+  border-color: #8f8f9d;
+}
+
+.folder-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 8px 6px;
+  color: #8a8a94;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.new-folder-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px;
+  color: #5b5b66;
+  font-size: 10px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.new-folder-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.note-folder-group {
+  padding: 2px 4px;
+}
+
+.note-folder-group.nested-folder {
+  margin-left: 14px;
+}
+
+.folder-heading {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  position: relative;
+  border-radius: 4px;
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.folder-heading.drop-target {
+  background-color: #e0e0e6;
+  box-shadow: inset 0 0 0 1px #8f8f9d;
+}
+
+.folder-heading.folder-drop-before::before,
+.folder-heading.folder-drop-after::after {
+  position: absolute;
+  right: 2px;
+  left: 2px;
+  height: 2px;
+  border-radius: 2px;
+  background: #0a84ff;
+  content: "";
+  pointer-events: none;
+}
+
+.folder-heading.folder-drop-before::before {
+  top: -1px;
+}
+
+.folder-heading.folder-drop-after::after {
+  bottom: -1px;
+}
+
+.folder-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 5px 6px;
+  color: #5b5b66;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.folder-toggle::before {
+  width: 6px;
+  height: 6px;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  content: "";
+  flex: 0 0 auto;
+  transform: rotate(-45deg);
+}
+
+.folder-toggle[aria-expanded="true"]::before {
+  transform: rotate(45deg);
+}
+
+.folder-count {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: #8a8a94;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.folder-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  opacity: 0.85;
+  background: transparent;
+  color: #8a8a94;
+  transition: color 0.12s ease, opacity 0.12s ease;
+}
+
+.folder-action-btn svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+
+.delete-confirm-open .folder-action-btn:hover,
+.delete-confirm-open .folder-action-btn:focus,
+.delete-confirm-open .folder-action-btn:active {
+  background: transparent;
+  color: inherit;
+}
+
+.folder-action-btn:hover,
+.folder-action-btn:focus,
+.folder-action-btn:active {
+  background: transparent !important;
+  color: #15141a;
+  opacity: 1;
+}
+
+.folder-action-btn.danger:hover,
+.folder-action-btn.danger:focus,
+.folder-action-btn.danger:active {
+  color: #e22525;
+}
+
+.folder-heading:hover .folder-action-btn,
+.folder-heading:focus-within .folder-action-btn {
+  opacity: 1;
+}
+
+.note-row {
+  display: flex;
+  align-items: center;
+  position: relative;
+  border-radius: 4px;
+}
+
+.note-row.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.note-item {
+  flex: 1;
+  min-width: 0;
+  padding-left: 26px;
+  cursor: grab;
+}
+
+.note-row .note-item {
+  width: auto;
+  display: block;
+  padding-left: 26px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-row.drop-before::before,
+.note-row.drop-after::after {
+  position: absolute;
+  right: 8px;
+  left: 24px;
+  height: 2px;
+  border-radius: 2px;
+  background: #0a84ff;
+  content: "";
+  pointer-events: none;
+}
+
+.note-row.drop-before::before {
+  top: -1px;
+}
+
+.note-row.drop-after::after {
+  bottom: -1px;
+}
+
+.note-actions {
+  display: flex;
+  align-items: center;
+  padding-right: 3px;
+  opacity: 1;
+}
+
+.note-row:hover .note-actions,
+.note-row:focus-within .note-actions {
+  opacity: 1;
 }
 
 .dropdown-item {
@@ -92,9 +374,10 @@ body.dark-theme .note-title-text {
   background-color: #f0f0f4;
 }
 
-.dropdown-item.active {
+.note-item.current-note {
   font-weight: 600;
-  background-color: #e0e0e6;
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .dropdown-divider {
@@ -114,15 +397,48 @@ body.dark-theme .dropdown-item {
 }
 
 body.dark-theme .dropdown-item:hover {
-  background-color: #3b3a43;
-}
-
-body.dark-theme .dropdown-item.active {
-  background-color: #52525e;
+  background-color: #34333b;
 }
 
 body.dark-theme .dropdown-divider {
   background-color: #5b5b66;
+}
+
+body.dark-theme .note-search {
+  border-color: #5b5b66;
+  background-color: #1c1b22;
+  color: #f9f9fb;
+}
+
+body.dark-theme .folder-toggle,
+body.dark-theme .new-folder-btn {
+  color: #c1c1c8;
+}
+
+body.dark-theme .folder-action-btn {
+  color: #9b9ba6;
+}
+
+body.dark-theme .folder-action-btn:hover,
+body.dark-theme .folder-action-btn:focus,
+body.dark-theme .folder-action-btn:active {
+  background: transparent !important;
+  color: #f9f9fb;
+}
+
+body.dark-theme .folder-action-btn.danger:hover,
+body.dark-theme .folder-action-btn.danger:focus,
+body.dark-theme .folder-action-btn.danger:active {
+  color: #ff8484;
+}
+
+body.dark-theme .folder-heading.drop-target {
+  background-color: #34333b;
+  box-shadow: inset 0 0 0 1px #8a8a94;
+}
+
+body.dark-theme .folder-count {
+  color: #90909a;
 }
 
 .editor-pane {
@@ -133,6 +449,96 @@ body.dark-theme .dropdown-divider {
   position: relative;
   overflow: hidden;
   min-height: 0;
+}
+
+.delete-confirmation {
+  box-sizing: border-box;
+  position: fixed;
+  z-index: 1000;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  padding: 16px;
+  background: rgba(21, 20, 26, 0.28);
+}
+
+.delete-confirmation.hidden {
+  display: none;
+}
+
+.delete-confirm-card {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  width: min(280px, 100%);
+  padding: 16px;
+  border: 1px solid #d7d7db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #15141a;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.delete-confirm-title {
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.delete-confirm-message {
+  color: #5b5b66;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.delete-confirm-actions button {
+  padding: 5px 10px;
+  border-color: #d7d7db;
+  background: #ffffff;
+}
+
+.delete-confirm-actions button.danger {
+  border-color: #e22525;
+  background: transparent;
+  color: #e22525;
+}
+
+body.dark-theme .delete-confirm-card {
+  border-color: #5b5b66;
+  background: #2b2a33;
+  color: #f9f9fb;
+}
+
+body.dark-theme .delete-confirmation {
+  background: rgba(10, 10, 14, 0.48);
+}
+
+body.dark-theme .delete-confirm-message {
+  color: #c1c1c8;
+}
+
+body.dark-theme .delete-confirm-actions button {
+  border-color: #5b5b66;
+  background: #3b3a43;
+  color: #f9f9fb;
+}
+
+body.dark-theme .delete-confirm-actions button.danger {
+  border-color: #ff8484;
+  background: transparent;
+  color: #ff8484;
 }
 
 .image-resize-handle {
@@ -251,6 +657,14 @@ button {
   transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
+[hidden] {
+  display: none !important;
+}
+
+.hidden {
+  display: none !important;
+}
+
 button:hover {
   background-color: #f0f0f4;
   color: #15141a;
@@ -362,6 +776,7 @@ button.danger:active {
 }
 
 button.icon-btn {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -435,3 +850,86 @@ body.dark-theme #status-bar {
 }
 
 
+
+body button:hover,
+body button:active,
+body button:focus-visible,
+body button.active,
+body.dark-theme button:hover,
+body.dark-theme button:active,
+body.dark-theme button:focus-visible,
+body.dark-theme button.active,
+body .folder-heading.drop-target,
+body.dark-theme .folder-heading.drop-target {
+  background: transparent !important;
+  box-shadow: inset 0 0 0 1px #8f8f9d;
+}
+
+body .folder-action-btn:hover,
+body .folder-action-btn:active,
+body.dark-theme .folder-action-btn:hover,
+body.dark-theme .folder-action-btn:active {
+  box-shadow: inset 0 0 0 1px #8f8f9d;
+}
+
+body .delete-confirm-actions button,
+body.dark-theme .delete-confirm-actions button {
+  background: transparent;
+}
+
+body .delete-confirm-actions button.danger {
+  color: #e22525;
+}
+
+body.dark-theme .delete-confirm-actions button.danger {
+  color: #ff8484;
+}
+
+body .note-item.current-note,
+body .note-item.current-note:hover,
+body .note-item.current-note:active,
+body.dark-theme .note-item.current-note,
+body.dark-theme .note-item.current-note:hover,
+body.dark-theme .note-item.current-note:active {
+  background: transparent;
+  box-shadow: none;
+  border-color: transparent;
+}
+
+body .delete-confirm-actions button.danger:hover,
+body .delete-confirm-actions button.danger:active,
+body .delete-confirm-actions button.danger:focus-visible {
+  box-shadow: inset 0 0 0 1px #e22525;
+}
+
+body.dark-theme .delete-confirm-actions button.danger:hover,
+body.dark-theme .delete-confirm-actions button.danger:active,
+body.dark-theme .delete-confirm-actions button.danger:focus-visible {
+  box-shadow: inset 0 0 0 1px #ff8484;
+}
+
+.utilities {
+  flex-shrink: 0;
+}
+
+@media (max-width: 300px) {
+  .editor-row .group {
+    flex-wrap: wrap;
+  }
+
+  .delete-confirmation {
+    padding: 8px;
+  }
+
+  .delete-confirm-card {
+    padding: 12px;
+  }
+
+  .note-folder-group.nested-folder {
+    margin-left: 8px;
+  }
+
+  .note-row .note-item {
+    padding-left: 12px;
+  }
+}
