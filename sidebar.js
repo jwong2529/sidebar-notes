@@ -30,6 +30,7 @@ const h2Btn = document.getElementById("h2-btn");
 
 let saveTimeout = null;
 let notes = [];
+const noteSearchTextCache = new WeakMap();
 let folders = [];
 let activeNoteId = null;
 let selectedImage = null;
@@ -257,16 +258,36 @@ noteArea.addEventListener("keydown", (e) => {
   }
 });
 
+function normalizeSearchText(text) {
+  return text.replace(/\s+/g, " ").trim().toLocaleLowerCase();
+}
+
+function getNoteSearchText(note) {
+  if (noteSearchTextCache.has(note)) {
+    return noteSearchTextCache.get(note);
+  }
+  const template = document.createElement("template");
+  template.innerHTML = note.content || "";
+  template.content.querySelectorAll("img, script, style, input, svg, video, audio, iframe, object").forEach((element) => element.remove());
+  template.content.querySelectorAll("br, div, p, h1, h2, h3, h4, h5, h6, li, ul, ol, blockquote, pre, tr, td, th, section, article, hr").forEach((element) => {
+    element.before(document.createTextNode(" "));
+    element.after(document.createTextNode(" "));
+  });
+  const text = normalizeSearchText(template.content.textContent || "");
+  noteSearchTextCache.set(note, text);
+  return text;
+}
+
 function renderNoteList() {
   dropdownItems.replaceChildren();
-  const query = noteSearch.value.trim().toLocaleLowerCase();
+  const query = normalizeSearchText(noteSearch.value);
   const groups = [{ id: "", name: "Notes" }, ...folders];
 
   groups.forEach((folder) => {
     const isCollapsed = !query && collapsedFolders.has(folder.id);
     const folderNotes = notes.filter((note) => (note.folderId || "") === folder.id);
     const matchingNotes = folderNotes.filter((note) =>
-      !query || (note.title || "Untitled Note").toLocaleLowerCase().includes(query) || folder.name.toLocaleLowerCase().includes(query)
+      !query || normalizeSearchText(note.title || "Untitled Note").includes(query) || normalizeSearchText(folder.name).includes(query) || getNoteSearchText(note).includes(query)
     );
     if (matchingNotes.length === 0 && (query || folderNotes.length > 0)) {
       return;
@@ -670,6 +691,7 @@ function selectNote(id) {
     noteTitleText.textContent = note.title;
     const parser = new DOMParser();
     const doc = parser.parseFromString(note.content || "", "text/html");
+    doc.body.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => checkbox.removeAttribute("contenteditable"));
     noteArea.replaceChildren(...doc.body.childNodes);
   } else {
     noteTitleText.textContent = "Untitled Note";
@@ -762,7 +784,11 @@ themeBtn.addEventListener("click", () => {
 function triggerSave() {
   const note = notes.find((n) => n.id === activeNoteId);
   if (note) {
-    note.content = noteArea.innerHTML;
+    const content = noteArea.innerHTML;
+    if (note.content !== content) {
+      note.content = content;
+      noteSearchTextCache.delete(note);
+    }
   }
   
   updateStatus("Saving...");
@@ -968,7 +994,6 @@ function todoMarkup(text = "", depth = 0, checked = false) {
   item.style.marginLeft = `${depth * 24}px`;
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
-  checkbox.contentEditable = "false";
   checkbox.setAttribute("aria-label", "Complete task");
   if (checked) checkbox.setAttribute("checked", "");
   item.append(checkbox, document.createTextNode(text || " "));
@@ -1012,17 +1037,11 @@ function handleTodoKey(event) {
   tail.setStart(range.startContainer, range.startOffset);
   const remainder = tail.extractContents();
   const next = document.createElement("div");
-  if (item.textContent.trim() || remainder.textContent.trim()) {
-    next.innerHTML = todoMarkup("", Number(item.dataset.depth) || 0);
-    const newItem = next.firstElementChild;
-    newItem.append(remainder);
-    item.after(newItem);
-    range.setStart(newItem, 1);
-  } else {
-    next.append(document.createElement("br"));
-    item.replaceWith(next);
-    range.setStart(next, 0);
-  }
+  next.innerHTML = todoMarkup("", Number(item.dataset.depth) || 0);
+  const newItem = next.firstElementChild;
+  newItem.append(remainder);
+  item.after(newItem);
+  range.setStart(newItem, 1);
   range.collapse(true);
   selection.removeAllRanges();
   selection.addRange(range);
@@ -1071,7 +1090,6 @@ noteArea.addEventListener("paste", (event) => {
     if (node.tagName === "INPUT") {
       if (!checkbox) { node.remove(); continue; }
       node.type = "checkbox";
-      node.contentEditable = "false";
       node.setAttribute("aria-label", "Complete task");
       node.toggleAttribute("checked", checked);
     }

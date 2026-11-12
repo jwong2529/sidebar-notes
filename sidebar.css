@@ -802,13 +802,13 @@ body .delete-confirm-actions button.danger:focus-visible {
 #note-area input[type="checkbox"]:checked::after {
   content: "";
   position: absolute;
-  left: 3px;
-  top: 0;
-  width: 4px;
-  height: 8px;
-  border: solid var(--color-on-accent);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  left: 50%;
+  top: 50%;
+  width: 9px;
+  height: 7px;
+  background: var(--color-on-accent);
+  clip-path: polygon(0 43%, 16% 23%, 39% 54%, 84% 0, 100% 20%, 39% 100%);
+  transform: translate(-50%, -50%);
 }
 
 #note-area input[type="checkbox"]:focus-visible {
