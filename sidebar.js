@@ -19,6 +19,9 @@ export function selectNote(id) {
     const doc = parser.parseFromString(note.content || "", "text/html");
     doc.body.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => checkbox.removeAttribute("contenteditable"));
     dom.noteArea.replaceChildren(...doc.body.childNodes);
+    if (typeof browser !== "undefined" && browser?.storage?.local) {
+      browser.storage.local.set({ activeNoteId: id }).catch(() => {});
+    }
   } else {
     dom.noteTitleText.textContent = "Untitled Note";
     dom.noteArea.replaceChildren();

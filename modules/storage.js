@@ -32,7 +32,7 @@ export function triggerSave() {
   }
 
   saveTimeout = setTimeout(() => {
-    browser.storage.local.set({ notesList: state.notes, foldersList: state.folders }).then(() => {
+    browser.storage.local.set({ notesList: state.notes, foldersList: state.folders, activeNoteId: state.activeNoteId }).then(() => {
       updateStatus("Saved");
     }).catch(() => {
       updateStatus("Could not save. Your changes are still open.");
@@ -41,11 +41,12 @@ export function triggerSave() {
 }
 
 export async function loadStorage() {
-  const result = await browser.storage.local.get(["notesList", "foldersList", "theme"]);
+  const result = await browser.storage.local.get(["notesList", "foldersList", "theme", "activeNoteId"]);
   state.folders = result.foldersList || [];
   if (result.notesList && result.notesList.length > 0) {
     state.notes = result.notesList;
-    state.activeNoteId = state.notes[0].id;
+    const lastActive = state.notes.find((n) => n.id === result.activeNoteId);
+    state.activeNoteId = lastActive ? lastActive.id : state.notes[0].id;
   } else {
     state.notes = [{ id: "default", title: "My Note", content: "" }];
     state.activeNoteId = "default";
