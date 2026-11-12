@@ -94,7 +94,8 @@ button.format-btn {
 }
 
 #list-picker-menu,
-#more-format-menu {
+#more-format-menu,
+#note-options-menu {
   left: auto;
   right: 0;
 }

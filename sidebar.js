@@ -3,7 +3,7 @@ import { state } from "./modules/state.js";
 import { updateStatus, triggerSave, loadStorage } from "./modules/storage.js";
 import { initDialogs, closeDeleteConfirmation } from "./modules/dialogs.js";
 import { initListItems, listItemAtSelection, createListItemMarkup, handleListItemKey, handleParagraphBackspace } from "./modules/list-items.js";
-import { initEditor, updateFormatIndicators, closeFormatMenus, positionFormatMenus } from "./modules/editor.js";
+import { initEditor, updateFormatIndicators, closeFormatMenus, positionFormatMenus, positionFormatMenu } from "./modules/editor.js";
 import { initImages } from "./modules/images.js";
 import { initTree, renderNoteList, closeNoteMenu, deleteNote } from "./modules/tree.js";
 
@@ -52,12 +52,10 @@ dom.favoriteBtn.addEventListener("click", () => {
   }
 });
 
-dom.renameBtn.addEventListener("click", () => {
+function beginTitleRename() {
   const note = state.notes.find((n) => n.id === state.activeNoteId);
   if (note && !document.querySelector(".title-name-input")) {
     dom.noteTitleText.hidden = true;
-    dom.favoriteBtn.hidden = true;
-    dom.renameBtn.hidden = true;
     const input = document.createElement("input");
     input.className = "inline-name-input title-name-input";
     input.value = note.title || "Untitled Note";
@@ -69,8 +67,6 @@ dom.renameBtn.addEventListener("click", () => {
       const name = input.value.trim();
       input.remove();
       dom.noteTitleText.hidden = false;
-      dom.favoriteBtn.hidden = false;
-      dom.renameBtn.hidden = false;
       if (save && name) {
         note.title = name;
         dom.noteTitleText.textContent = name;
@@ -92,16 +88,39 @@ dom.renameBtn.addEventListener("click", () => {
     input.focus();
     input.select();
   }
+}
+
+dom.noteTitleText.addEventListener("click", beginTitleRename);
+dom.noteTitleText.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    beginTitleRename();
+  }
 });
 
-dom.clearBtn.addEventListener("click", () => {
-  const note = state.notes.find((item) => item.id === state.activeNoteId);
-  if (note) {
-    deleteNote(note, selectNote);
+export function closeNoteOptionsMenu() {
+  if (dom.noteOptionsMenu) {
+    dom.noteOptionsMenu.classList.add("hidden");
+    dom.noteOptionsBtn.setAttribute("aria-expanded", "false");
+  }
+}
+
+dom.noteOptionsBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const isHidden = dom.noteOptionsMenu.classList.contains("hidden");
+  closeFormatMenus();
+  closeNoteMenu();
+  if (isHidden) {
+    dom.noteOptionsMenu.classList.remove("hidden");
+    dom.noteOptionsBtn.setAttribute("aria-expanded", "true");
+    positionFormatMenu(dom.noteOptionsMenu);
+  } else {
+    closeNoteOptionsMenu();
   }
 });
 
 dom.exportBtn.addEventListener("click", () => {
+  closeNoteOptionsMenu();
   const note = state.notes.find((n) => n.id === state.activeNoteId);
   const title = (note ? note.title : "notes").replace(/[^a-z0-9]/gi, "_").toLowerCase();
   const notesHtml = dom.noteArea.innerHTML;
@@ -117,6 +136,7 @@ dom.exportBtn.addEventListener("click", () => {
 });
 
 dom.themeBtn.addEventListener("click", () => {
+  closeNoteOptionsMenu();
   const isDark = document.body.classList.toggle("dark-theme");
   browser.storage.local.set({ theme: isDark ? "dark" : "light" });
 });
@@ -134,6 +154,9 @@ document.addEventListener("click", (e) => {
   }
   if (!e.target.closest(".format-dropdown-group")) {
     closeFormatMenus();
+  }
+  if (!e.target.closest(".note-options-group")) {
+    closeNoteOptionsMenu();
   }
 });
 
@@ -154,6 +177,10 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     closeNoteMenu();
     dom.menuBtn.focus();
+  } else if (event.key === "Escape" && dom.noteOptionsMenu && !dom.noteOptionsMenu.classList.contains("hidden")) {
+    event.preventDefault();
+    closeNoteOptionsMenu();
+    dom.noteOptionsBtn.focus();
   } else if (event.key === "Escape" && (!dom.textStyleMenu.classList.contains("hidden") || !dom.listPickerMenu.classList.contains("hidden") || !dom.moreFormatMenu.classList.contains("hidden"))) {
     event.preventDefault();
     closeFormatMenus();

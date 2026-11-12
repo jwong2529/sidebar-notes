@@ -9,6 +9,10 @@ export function closeFormatMenus() {
   dom.listPickerBtn.setAttribute("aria-expanded", "false");
   dom.moreFormatMenu.classList.add("hidden");
   dom.moreFormatBtn.setAttribute("aria-expanded", "false");
+  if (dom.noteOptionsMenu) {
+    dom.noteOptionsMenu.classList.add("hidden");
+    dom.noteOptionsBtn.setAttribute("aria-expanded", "false");
+  }
 }
 
 export function positionFormatMenu(menu) {
@@ -29,7 +33,7 @@ export function positionFormatMenu(menu) {
 }
 
 export function positionFormatMenus() {
-  [dom.textStyleMenu, dom.listPickerMenu, dom.moreFormatMenu].forEach(positionFormatMenu);
+  [dom.textStyleMenu, dom.listPickerMenu, dom.moreFormatMenu, dom.noteOptionsMenu].filter(Boolean).forEach(positionFormatMenu);
 }
 
 export function updateFormatIndicators() {

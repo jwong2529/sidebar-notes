@@ -163,7 +163,7 @@ function createNoteRow(note, isFavoriteSection = false) {
   row.dataset.noteId = note.id;
   row.draggable = true;
   row.addEventListener("dragstart", (event) => {
-    if (event.target.closest(".note-actions")) {
+    if (event.target.closest(".note-actions, .note-fav-btn")) {
       event.preventDefault();
       return;
     }
@@ -223,7 +223,7 @@ function createNoteRow(note, isFavoriteSection = false) {
   actions.className = "note-actions";
 
   const favoriteNoteBtn = document.createElement("button");
-  favoriteNoteBtn.className = "folder-action-btn favorite-action-btn";
+  favoriteNoteBtn.className = "folder-action-btn note-fav-btn";
   if (note.favorite) {
     favoriteNoteBtn.classList.add("favorited");
   }
@@ -272,7 +272,7 @@ function createNoteRow(note, isFavoriteSection = false) {
   deleteNoteBtn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M6 4.5V3h4v1.5m2 0-.5 8.5h-7L4 4.5m3 2v4m2-4v4"></path></svg>';
   deleteNoteBtn.addEventListener("click", () => deleteNote(note, activeSelectNote));
 
-  actions.append(favoriteNoteBtn, renameNoteBtn, deleteNoteBtn);
+  actions.append(renameNoteBtn, deleteNoteBtn);
 
   item.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -305,7 +305,7 @@ function createNoteRow(note, isFavoriteSection = false) {
     });
   });
 
-  row.append(item, actions);
+  row.append(favoriteNoteBtn, item, actions);
   return row;
 }
 
@@ -361,19 +361,11 @@ export function renderNoteList() {
     const favToggle = document.createElement("button");
     favToggle.className = "folder-toggle favorites-toggle";
     favToggle.setAttribute("aria-expanded", String(!isFavoritesCollapsed));
-    const favIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    favIcon.setAttribute("viewBox", "0 0 16 16");
-    favIcon.setAttribute("aria-hidden", "true");
-    favIcon.setAttribute("fill", "currentColor");
-    favIcon.setAttribute("stroke", "currentColor");
-    favIcon.setAttribute("stroke-width", "1");
-    favIcon.classList.add("favorites-icon");
-    favIcon.innerHTML = '<polygon points="8 1.5 10.06 5.67 14.67 6.34 11.33 9.59 12.12 14.18 8 12.01 3.88 14.18 4.67 9.59 1.33 6.34 5.94 5.67 8 1.5"></polygon>';
     const favName = document.createElement("span");
     favName.className = "folder-name";
     favName.textContent = "Favorites";
     favToggle.title = "Favorites";
-    favToggle.append(favIcon, favName);
+    favToggle.appendChild(favName);
 
     const favCount = document.createElement("span");
     favCount.className = "folder-count";
