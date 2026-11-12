@@ -225,6 +225,7 @@ document.addEventListener("selectionchange", () => {
 });
 
 noteArea.addEventListener("keydown", (e) => {
+  if (handleParagraphBackspace(e)) return;
   if (handleTodoKey(e)) return;
   if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault();
@@ -873,6 +874,7 @@ function insertImageFiles(files, range) {
 }
 
 noteArea.addEventListener("paste", (event) => {
+  if (event.clipboardData.getData("text/html")) return;
   const files = Array.from(event.clipboardData.items)
     .filter((item) => item.kind === "file")
     .map((item) => item.getAsFile())
@@ -996,16 +998,32 @@ function todoMarkup(text = "", depth = 0, checked = false) {
   checkbox.type = "checkbox";
   checkbox.setAttribute("aria-label", "Complete task");
   if (checked) checkbox.setAttribute("checked", "");
-  item.append(checkbox, document.createTextNode(text || " "));
+  item.append(checkbox, text ? document.createTextNode(text) : document.createElement("br"));
   return item.outerHTML;
 }
 
 const todoBtn = document.getElementById("todo-btn");
 todoBtn.addEventListener("mousedown", (event) => event.preventDefault());
+noteArea.addEventListener("mousedown", (event) => {
+  if (event.target.matches('input[type="checkbox"]')) event.preventDefault();
+});
 todoBtn.addEventListener("click", () => {
   noteArea.focus();
-  document.execCommand("insertHTML", false, todoMarkup());
-  triggerSave();
+  const template = document.createElement("template");
+  template.innerHTML = todoMarkup();
+  const row = template.content.firstElementChild;
+  const range = getEditorRange();
+  const node = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+  const block = node.closest("div, p, h1, h2, li");
+  if (range.collapsed && block && block !== noteArea && noteArea.contains(block) && !block.querySelector("div, p, li, [data-todo]")) {
+    const content = block.cloneNode(true);
+    content.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => checkbox.remove());
+    row.lastChild.remove();
+    row.append(...content.childNodes);
+    if (row.childNodes.length === 1) row.append(document.createElement("br"));
+    range.selectNode(block);
+  }
+  insertTodoEdit(range, [row], 0, 1);
 });
 
 noteArea.addEventListener("change", (event) => {
@@ -1015,37 +1033,139 @@ noteArea.addEventListener("change", (event) => {
   }
 });
 
+function insertTodoEdit(range, rows, caretRow, caretOffset) {
+  const marker = document.createElement("span");
+  marker.dataset.todoCaret = "true";
+  rows[caretRow].insertBefore(marker, rows[caretRow].childNodes[caretOffset] || null);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+  const replaced = range.startContainer === range.endContainer && range.endOffset > range.startOffset
+    ? range.startContainer.childNodes[range.startOffset] : null;
+  const lastReplaced = replaced ? range.endContainer.childNodes[range.endOffset - 1] : null;
+  if (replaced?.nodeType === Node.ELEMENT_NODE) {
+    const start = document.createTextNode("\u200b");
+    const end = document.createTextNode("\u200b");
+    replaced.before(start);
+    lastReplaced.after(end);
+    range.setStartBefore(start);
+    range.setEndAfter(end);
+  }
+  selection.removeAllRanges();
+  selection.addRange(range);
+  document.execCommand("insertHTML", false, rows.map((row) => row.outerHTML).join(""));
+
+  const insertedMarker = noteArea.querySelector("[data-todo-caret]");
+  if (insertedMarker) {
+    range = document.createRange();
+    range.setStartBefore(insertedMarker);
+    range.collapse(true);
+    insertedMarker.remove();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+  triggerSave();
+}
+
+function handleParagraphBackspace(event) {
+  if (event.key !== "Backspace" || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return false;
+  const selection = window.getSelection();
+  if (!selection.rangeCount || !selection.isCollapsed) return false;
+  const range = selection.getRangeAt(0);
+  const node = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+  const paragraph = node.closest("div, p, h1, h2");
+  if (!paragraph || paragraph === noteArea || !noteArea.contains(paragraph) || paragraph.closest("[data-todo]")) return false;
+  let previous = paragraph.previousSibling;
+  while (previous?.nodeType === Node.TEXT_NODE && !previous.textContent.replace(/\u200b/g, "").trim()) previous = previous.previousSibling;
+  if (!previous?.matches?.("[data-todo]")) return false;
+  const leading = document.createRange();
+  leading.selectNodeContents(paragraph);
+  leading.setEnd(range.startContainer, range.startOffset);
+  const fragment = leading.cloneContents();
+  if (fragment.textContent.length || fragment.querySelector("img, input, br, video, audio")) return false;
+  event.preventDefault();
+  const merged = previous.cloneNode(true);
+  if (merged.lastChild?.nodeName === "BR") merged.lastChild.remove();
+  const caretOffset = merged.childNodes.length;
+  const content = paragraph.cloneNode(true);
+  if (content.childNodes.length === 1 && content.firstChild.nodeName === "BR") content.firstChild.remove();
+  merged.append(...content.childNodes);
+  if (merged.childNodes.length === 1) merged.append(document.createElement("br"));
+  const replacement = document.createRange();
+  replacement.setStartBefore(previous);
+  replacement.setEndAfter(paragraph);
+  insertTodoEdit(replacement, [merged], 0, caretOffset);
+  return true;
+}
+
 function handleTodoKey(event) {
   const item = todoAtSelection();
   if (!item || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return false;
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return false;
+  const range = selection.getRangeAt(0);
+  if (!item.contains(range.startContainer) || !item.contains(range.endContainer)) return false;
+  const before = document.createRange();
+  before.selectNodeContents(item);
+  before.setEnd(range.startContainer, range.startOffset);
+  const leading = before.cloneContents();
+  leading.querySelectorAll("input, br").forEach((node) => node.remove());
+  if (event.key === "Backspace" && range.collapsed && !leading.textContent.length && !leading.querySelector("img")) {
+    event.preventDefault();
+    const plain = document.createElement("div");
+    const content = item.cloneNode(true);
+    content.querySelectorAll('input[type="checkbox"]').forEach((node) => node.remove());
+    plain.append(...content.childNodes);
+    if (!plain.hasChildNodes()) plain.append(document.createElement("br"));
+    const replacement = document.createRange();
+    replacement.selectNode(item);
+    insertTodoEdit(replacement, [plain], 0, 0);
+    return true;
+  }
   if (event.key === "Tab") {
     event.preventDefault();
+    const clone = item.cloneNode(true);
     const depth = Math.max(0, Math.min(12, (Number(item.dataset.depth) || 0) + (event.shiftKey ? -1 : 1)));
-    item.dataset.depth = String(depth);
-    item.style.marginLeft = `${depth * 24}px`;
-    triggerSave();
+    clone.dataset.depth = String(depth);
+    clone.style.marginLeft = `${depth * 24}px`;
+    const replacement = document.createRange();
+    replacement.selectNode(item);
+    insertTodoEdit(replacement, [clone], 0, clone.childNodes.length - (clone.lastChild?.nodeName === "BR" ? 1 : 0));
     return true;
   }
   if (event.key !== "Enter" || event.shiftKey) return false;
   event.preventDefault();
-  const selection = window.getSelection();
-  const range = selection.getRangeAt(0);
-  if (!item.contains(range.endContainer)) return true;
-  range.deleteContents();
-  const tail = document.createRange();
-  tail.selectNodeContents(item);
-  tail.setStart(range.startContainer, range.startOffset);
-  const remainder = tail.extractContents();
-  const next = document.createElement("div");
-  next.innerHTML = todoMarkup("", Number(item.dataset.depth) || 0);
-  const newItem = next.firstElementChild;
-  newItem.append(remainder);
-  item.after(newItem);
-  range.setStart(newItem, 1);
-  range.collapse(true);
-  selection.removeAllRanges();
-  selection.addRange(range);
-  triggerSave();
+  if (!item.textContent.length && !item.querySelector("img, video, audio")) {
+    const plain = document.createElement("div");
+    plain.append(document.createElement("br"));
+    const replacement = document.createRange();
+    replacement.selectNode(item);
+    insertTodoEdit(replacement, [plain], 0, 0);
+    return true;
+  }
+  const after = document.createRange();
+  after.selectNodeContents(item);
+  after.setStart(range.endContainer, range.endOffset);
+  const trailing = after.cloneContents();
+  const first = item.cloneNode(false);
+  const checkbox = item.querySelector('input[type="checkbox"]');
+  first.append(checkbox ? checkbox.cloneNode(true) : document.createElement("br"));
+  const head = before.cloneContents();
+  head.querySelectorAll('input[type="checkbox"]').forEach((node) => node.remove());
+  trailing.querySelectorAll('input[type="checkbox"]').forEach((node) => node.remove());
+  if (head.lastChild?.nodeName === "BR") head.lastChild.remove();
+  first.append(head);
+  if (first.childNodes.length === 1) first.append(document.createElement("br"));
+  const template = document.createElement("template");
+  template.innerHTML = todoMarkup("", Number(item.dataset.depth) || 0);
+  const next = template.content.firstElementChild;
+  if (trailing.hasChildNodes()) {
+    next.lastChild.remove();
+    next.append(trailing);
+  }
+  const replacement = document.createRange();
+  replacement.selectNode(item);
+  insertTodoEdit(replacement, [first, next], 1, 1);
   return true;
 }
 
@@ -1075,7 +1195,7 @@ noteArea.addEventListener("paste", (event) => {
   const doc = new DOMParser().parseFromString(html, "text/html");
   if (!doc.querySelector("[data-todo], input[type=checkbox]")) return;
   event.preventDefault();
-  const allowed = new Set(["DIV", "P", "BR", "SPAN", "B", "STRONG", "I", "EM", "U", "S", "UL", "OL", "LI", "H1", "H2", "INPUT"]);
+  const allowed = new Set(["DIV", "P", "BR", "SPAN", "B", "STRONG", "I", "EM", "U", "S", "UL", "OL", "LI", "H1", "H2", "INPUT", "A", "IMG", "BLOCKQUOTE", "PRE", "CODE", "TABLE", "TBODY", "TR", "TD", "TH"]);
   doc.body.querySelectorAll("script, style, iframe, object").forEach((node) => node.remove());
   for (const node of Array.from(doc.body.querySelectorAll("*"))) {
     if (!allowed.has(node.tagName)) {
@@ -1086,7 +1206,21 @@ noteArea.addEventListener("paste", (event) => {
     const depth = Math.max(0, Math.min(12, Number(node.dataset.depth) || 0));
     const checked = node.hasAttribute("checked");
     const checkbox = node.matches('input[type="checkbox"]');
+    const href = node.getAttribute("href") || "";
+    const src = node.getAttribute("src") || "";
+    const alt = node.getAttribute("alt") || "";
+    const width = node.style.width || node.getAttribute("width") || "";
     for (const attr of Array.from(node.attributes)) node.removeAttribute(attr.name);
+    if (node.tagName === "A" && /^(https?:|mailto:|tel:|#)/i.test(href.trim())) node.setAttribute("href", href.trim());
+    if (node.tagName === "IMG") {
+      if (!/^(https?:|data:image\/(?:png|jpe?g|gif|webp|avif|bmp);base64,)/i.test(src.trim())) {
+        node.replaceWith(document.createTextNode(alt));
+        continue;
+      }
+      node.setAttribute("src", src.trim());
+      node.setAttribute("alt", alt);
+      if (/^\d+(?:\.\d+)?(?:px|%)?$/.test(width)) node.style.width = /^\d+$/.test(width) ? `${width}px` : width;
+    }
     if (node.tagName === "INPUT") {
       if (!checkbox) { node.remove(); continue; }
       node.type = "checkbox";
