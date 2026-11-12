@@ -29,6 +29,13 @@ const todoBtn = document.getElementById("todo-btn");
 const pBtn = document.getElementById("p-btn");
 const h1Btn = document.getElementById("h1-btn");
 const h2Btn = document.getElementById("h2-btn");
+const textStyleBtn = document.getElementById("text-style-btn");
+const textStyleLabel = document.getElementById("text-style-label");
+const textStyleMenu = document.getElementById("text-style-menu");
+const listPickerBtn = document.getElementById("list-picker-btn");
+const listPickerMenu = document.getElementById("list-picker-menu");
+const moreFormatBtn = document.getElementById("more-format-btn");
+const moreFormatMenu = document.getElementById("more-format-menu");
 
 let saveTimeout = null;
 let notes = [];
@@ -113,6 +120,7 @@ function positionSearchMenu() {
 
 window.addEventListener("resize", () => {
   positionSearchMenu();
+  positionFormatMenus();
   if (pendingDelete) {
     positionActionDialog();
   }
@@ -188,11 +196,81 @@ function beginInlineRename(container, currentName, onSave, onCancel) {
   input.select();
 }
 
+function closeFormatMenus() {
+  textStyleMenu.classList.add("hidden");
+  textStyleBtn.setAttribute("aria-expanded", "false");
+  listPickerMenu.classList.add("hidden");
+  listPickerBtn.setAttribute("aria-expanded", "false");
+  moreFormatMenu.classList.add("hidden");
+  moreFormatBtn.setAttribute("aria-expanded", "false");
+}
+
+function positionFormatMenu(menu) {
+  if (menu.classList.contains("hidden")) return;
+  menu.style.left = "";
+  menu.style.right = "";
+  const rect = menu.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  if (rect.right > viewportWidth - 8) {
+    menu.style.left = "auto";
+    menu.style.right = "0";
+  }
+  const updatedRect = menu.getBoundingClientRect();
+  if (updatedRect.left < 8) {
+    menu.style.left = "0";
+    menu.style.right = "auto";
+  }
+}
+
+function positionFormatMenus() {
+  [textStyleMenu, listPickerMenu, moreFormatMenu].forEach(positionFormatMenu);
+}
+
+[textStyleBtn, listPickerBtn, moreFormatBtn, pBtn, h1Btn, h2Btn, underlineBtn, strikeBtn].forEach((element) => {
+  element.addEventListener("mousedown", (e) => e.preventDefault());
+});
+
+textStyleBtn.addEventListener("click", (e) => {
+  const isHidden = textStyleMenu.classList.contains("hidden");
+  closeFormatMenus();
+  if (isHidden) {
+    textStyleMenu.classList.remove("hidden");
+    textStyleBtn.setAttribute("aria-expanded", "true");
+    positionFormatMenu(textStyleMenu);
+  }
+  e.stopPropagation();
+});
+
+listPickerBtn.addEventListener("click", (e) => {
+  const isHidden = listPickerMenu.classList.contains("hidden");
+  closeFormatMenus();
+  if (isHidden) {
+    listPickerMenu.classList.remove("hidden");
+    listPickerBtn.setAttribute("aria-expanded", "true");
+    positionFormatMenu(listPickerMenu);
+  }
+  e.stopPropagation();
+});
+
+moreFormatBtn.addEventListener("click", (e) => {
+  const isHidden = moreFormatMenu.classList.contains("hidden");
+  closeFormatMenus();
+  if (isHidden) {
+    moreFormatMenu.classList.remove("hidden");
+    moreFormatBtn.setAttribute("aria-expanded", "true");
+    positionFormatMenu(moreFormatMenu);
+  }
+  e.stopPropagation();
+});
+
 function updateFormatIndicators() {
   boldBtn.classList.toggle("active", document.queryCommandState("bold"));
   italicBtn.classList.toggle("active", document.queryCommandState("italic"));
-  underlineBtn.classList.toggle("active", document.queryCommandState("underline"));
-  strikeBtn.classList.toggle("active", document.queryCommandState("strikeThrough"));
+  const isUnderline = document.queryCommandState("underline");
+  const isStrike = document.queryCommandState("strikeThrough");
+  underlineBtn.classList.toggle("active", isUnderline);
+  strikeBtn.classList.toggle("active", isStrike);
+  moreFormatBtn.classList.toggle("active", isUnderline || isStrike);
 
   let blockValue = document.queryCommandValue("formatBlock") || "";
   blockValue = blockValue.toLowerCase();
@@ -201,10 +279,22 @@ function updateFormatIndicators() {
   const listType = currentListItem ? getListItemType(currentListItem) : null;
   bulletBtn.classList.toggle("active", listType === "bullet");
   todoBtn.classList.toggle("active", listType === "todo");
+  listPickerBtn.classList.toggle("active", Boolean(listType));
 
-  pBtn.classList.toggle("active", !listType && (blockValue === "p" || blockValue === "div" || blockValue === ""));
-  h1Btn.classList.toggle("active", blockValue === "h1");
-  h2Btn.classList.toggle("active", blockValue === "h2");
+  const isH1 = blockValue === "h1";
+  const isH2 = blockValue === "h2";
+  const isP = !listType && (blockValue === "p" || blockValue === "div" || blockValue === "");
+  pBtn.classList.toggle("active", isP);
+  h1Btn.classList.toggle("active", isH1);
+  h2Btn.classList.toggle("active", isH2);
+
+  if (isH1) {
+    textStyleLabel.textContent = "Heading 1";
+  } else if (isH2) {
+    textStyleLabel.textContent = "Heading 2";
+  } else {
+    textStyleLabel.textContent = "Normal";
+  }
 }
 
 function format(command, value = null) {
@@ -216,11 +306,26 @@ function format(command, value = null) {
 
 boldBtn.addEventListener("click", () => format("bold"));
 italicBtn.addEventListener("click", () => format("italic"));
-underlineBtn.addEventListener("click", () => format("underline"));
-strikeBtn.addEventListener("click", () => format("strikeThrough"));
-pBtn.addEventListener("click", () => format("formatBlock", "p"));
-h1Btn.addEventListener("click", () => format("formatBlock", "h1"));
-h2Btn.addEventListener("click", () => format("formatBlock", "h2"));
+underlineBtn.addEventListener("click", () => {
+  format("underline");
+  closeFormatMenus();
+});
+strikeBtn.addEventListener("click", () => {
+  format("strikeThrough");
+  closeFormatMenus();
+});
+pBtn.addEventListener("click", () => {
+  format("formatBlock", "p");
+  closeFormatMenus();
+});
+h1Btn.addEventListener("click", () => {
+  format("formatBlock", "h1");
+  closeFormatMenus();
+});
+h2Btn.addEventListener("click", () => {
+  format("formatBlock", "h2");
+  closeFormatMenus();
+});
 
 noteArea.addEventListener("keyup", updateFormatIndicators);
 noteArea.addEventListener("mouseup", updateFormatIndicators);
@@ -667,6 +772,9 @@ document.addEventListener("click", (e) => {
   if (!dropdownMenu.contains(e.target) && e.target !== menuBtn) {
     closeNoteMenu();
   }
+  if (!e.target.closest(".format-dropdown-group")) {
+    closeFormatMenus();
+  }
 });
 
 document.addEventListener("keydown", (event) => {
@@ -686,6 +794,9 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     closeNoteMenu();
     menuBtn.focus();
+  } else if (event.key === "Escape" && (!textStyleMenu.classList.contains("hidden") || !listPickerMenu.classList.contains("hidden") || !moreFormatMenu.classList.contains("hidden"))) {
+    event.preventDefault();
+    closeFormatMenus();
   }
 });
 
@@ -1075,8 +1186,14 @@ noteArea.addEventListener("mousedown", (event) => {
   if (event.target.matches('input[type="checkbox"]')) event.preventDefault();
 });
 bulletBtn.addEventListener("mousedown", (event) => event.preventDefault());
-bulletBtn.addEventListener("click", () => toggleListItem("bullet"));
-todoBtn.addEventListener("click", () => toggleListItem("todo"));
+bulletBtn.addEventListener("click", () => {
+  toggleListItem("bullet");
+  closeFormatMenus();
+});
+todoBtn.addEventListener("click", () => {
+  toggleListItem("todo");
+  closeFormatMenus();
+});
 
 function toggleListItem(type) {
   noteArea.focus();

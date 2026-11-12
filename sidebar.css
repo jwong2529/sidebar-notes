@@ -595,6 +595,64 @@ button.format-btn {
   font-weight: normal;
 }
 
+.format-dropdown-group {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.format-select-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  min-width: auto;
+}
+
+.format-dropdown-menu {
+  width: max-content;
+  min-width: 124px;
+  max-width: min(200px, calc(100vw - 16px));
+  padding: 4px 0;
+  box-shadow: 0 4px 12px var(--color-menu-shadow);
+  z-index: 50;
+}
+
+#list-picker-menu,
+#more-format-menu {
+  left: auto;
+  right: 0;
+}
+
+.format-item {
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: normal;
+  border-radius: 0;
+}
+
+.format-item.active {
+  background-color: var(--color-active);
+  font-weight: 600;
+}
+
+.format-item-icon {
+  width: 14px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.underline-icon {
+  text-decoration: underline;
+}
+
+.strike-icon {
+  text-decoration: line-through;
+}
+
 button.danger:hover {
   background-color: var(--color-danger-hover);
   color: var(--color-danger);
