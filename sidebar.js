@@ -224,6 +224,7 @@ document.addEventListener("selectionchange", () => {
 });
 
 noteArea.addEventListener("keydown", (e) => {
+  if (handleTodoKey(e)) return;
   if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault();
     if (!document.execCommand("insertText", false, "\t")) {
@@ -951,4 +952,135 @@ clearBtn.addEventListener("click", () => {
   if (note) {
     deleteNote(note);
   }
+});
+
+function todoAtSelection() {
+  const node = window.getSelection().anchorNode;
+  const element = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
+  const item = element && element.closest("[data-todo]");
+  return item && noteArea.contains(item) ? item : null;
+}
+
+function todoMarkup(text = "", depth = 0, checked = false) {
+  const item = document.createElement("div");
+  item.dataset.todo = "true";
+  item.dataset.depth = String(depth);
+  item.style.marginLeft = `${depth * 24}px`;
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.contentEditable = "false";
+  checkbox.setAttribute("aria-label", "Complete task");
+  if (checked) checkbox.setAttribute("checked", "");
+  item.append(checkbox, document.createTextNode(text || " "));
+  return item.outerHTML;
+}
+
+const todoBtn = document.getElementById("todo-btn");
+todoBtn.addEventListener("mousedown", (event) => event.preventDefault());
+todoBtn.addEventListener("click", () => {
+  noteArea.focus();
+  document.execCommand("insertHTML", false, todoMarkup());
+  triggerSave();
+});
+
+noteArea.addEventListener("change", (event) => {
+  if (event.target.matches('input[type="checkbox"]')) {
+    event.target.toggleAttribute("checked", event.target.checked);
+    triggerSave();
+  }
+});
+
+function handleTodoKey(event) {
+  const item = todoAtSelection();
+  if (!item || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return false;
+  if (event.key === "Tab") {
+    event.preventDefault();
+    const depth = Math.max(0, Math.min(12, (Number(item.dataset.depth) || 0) + (event.shiftKey ? -1 : 1)));
+    item.dataset.depth = String(depth);
+    item.style.marginLeft = `${depth * 24}px`;
+    triggerSave();
+    return true;
+  }
+  if (event.key !== "Enter" || event.shiftKey) return false;
+  event.preventDefault();
+  const selection = window.getSelection();
+  const range = selection.getRangeAt(0);
+  if (!item.contains(range.endContainer)) return true;
+  range.deleteContents();
+  const tail = document.createRange();
+  tail.selectNodeContents(item);
+  tail.setStart(range.startContainer, range.startOffset);
+  const remainder = tail.extractContents();
+  const next = document.createElement("div");
+  if (item.textContent.trim() || remainder.textContent.trim()) {
+    next.innerHTML = todoMarkup("", Number(item.dataset.depth) || 0);
+    const newItem = next.firstElementChild;
+    newItem.append(remainder);
+    item.after(newItem);
+    range.setStart(newItem, 1);
+  } else {
+    next.append(document.createElement("br"));
+    item.replaceWith(next);
+    range.setStart(next, 0);
+  }
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  triggerSave();
+  return true;
+}
+
+for (const action of ["copy", "cut"]) {
+  noteArea.addEventListener(action, (event) => {
+    const selection = window.getSelection();
+    if (!selection.rangeCount || selection.isCollapsed) return;
+    const range = selection.getRangeAt(0);
+    const container = document.createElement("div");
+    container.append(range.cloneContents());
+    if (!container.querySelector("[data-todo], input[type=checkbox]")) return;
+    event.preventDefault();
+    event.clipboardData.setData("text/html", container.innerHTML);
+    container.querySelectorAll('input[type="checkbox"]').forEach((box) => box.replaceWith(document.createTextNode(box.hasAttribute("checked") ? "[x] " : "[ ] ")));
+    container.querySelectorAll("div").forEach((line) => line.append(document.createTextNode("\n")));
+    event.clipboardData.setData("text/plain", container.textContent);
+    if (action === "cut") {
+      document.execCommand("delete");
+      triggerSave();
+    }
+  });
+}
+
+noteArea.addEventListener("paste", (event) => {
+  if (event.defaultPrevented) return;
+  const html = event.clipboardData.getData("text/html");
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  if (!doc.querySelector("[data-todo], input[type=checkbox]")) return;
+  event.preventDefault();
+  const allowed = new Set(["DIV", "P", "BR", "SPAN", "B", "STRONG", "I", "EM", "U", "S", "UL", "OL", "LI", "H1", "H2", "INPUT"]);
+  doc.body.querySelectorAll("script, style, iframe, object").forEach((node) => node.remove());
+  for (const node of Array.from(doc.body.querySelectorAll("*"))) {
+    if (!allowed.has(node.tagName)) {
+      node.replaceWith(...node.childNodes);
+      continue;
+    }
+    const todo = node.hasAttribute("data-todo");
+    const depth = Math.max(0, Math.min(12, Number(node.dataset.depth) || 0));
+    const checked = node.hasAttribute("checked");
+    const checkbox = node.matches('input[type="checkbox"]');
+    for (const attr of Array.from(node.attributes)) node.removeAttribute(attr.name);
+    if (node.tagName === "INPUT") {
+      if (!checkbox) { node.remove(); continue; }
+      node.type = "checkbox";
+      node.contentEditable = "false";
+      node.setAttribute("aria-label", "Complete task");
+      node.toggleAttribute("checked", checked);
+    }
+    if (todo) {
+      node.dataset.todo = "true";
+      node.dataset.depth = String(depth);
+      node.style.marginLeft = `${depth * 24}px`;
+    }
+  }
+  document.execCommand("insertHTML", false, doc.body.innerHTML);
+  triggerSave();
 });

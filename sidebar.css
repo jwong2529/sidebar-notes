@@ -942,3 +942,46 @@ body.dark-theme .delete-confirm-actions button.danger:focus-visible {
     padding-left: 12px;
   }
 }
+
+#note-area [data-todo] {
+  min-height: 1.5em;
+}
+
+#note-area input[type="checkbox"] {
+  margin: 0 6px 0 0;
+  vertical-align: middle;
+  cursor: pointer;
+  accent-color: #0a84ff;
+}
+
+body.dark-theme #note-area input[type="checkbox"] {
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border: 1px solid #8f8f9d;
+  border-radius: 2px;
+  background: transparent;
+  position: relative;
+}
+
+body.dark-theme #note-area input[type="checkbox"]:checked {
+  border-color: #0a84ff;
+  background: #0a84ff;
+}
+
+body.dark-theme #note-area input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  width: 4px;
+  height: 8px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+body.dark-theme #note-area input[type="checkbox"]:focus-visible {
+  outline: 2px solid #0a84ff;
+  outline-offset: 2px;
+}
