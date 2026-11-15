@@ -7,12 +7,19 @@ let restoring = false;
 let transactionDepth = 0;
 
 function snapshot() {
+  dom.noteArea.normalize();
   const selection = window.getSelection();
   const point = (node, offset) => {
     if (!node || !dom.noteArea.contains(node)) return null;
+    const children = (parent) => Array.from(parent.childNodes).filter(child => child.nodeType !== Node.TEXT_NODE || child.length);
+    if (node.nodeType === Node.TEXT_NODE && !node.length) {
+      offset = Array.prototype.indexOf.call(node.parentNode.childNodes, node);
+      node = node.parentNode;
+    }
+    if (node.nodeType === Node.ELEMENT_NODE) offset = Array.from(node.childNodes).slice(0, offset).filter(child => child.nodeType !== Node.TEXT_NODE || child.length).length;
     const path = [];
     while (node !== dom.noteArea) {
-      path.unshift(Array.prototype.indexOf.call(node.parentNode.childNodes, node));
+      path.unshift(children(node.parentNode).indexOf(node));
       node = node.parentNode;
     }
     return { path, offset };
@@ -54,8 +61,11 @@ export function restoreEditorHistory(direction) {
   dom.noteArea.innerHTML = entry.html;
   dom.noteArea.focus();
   const resolve = (point) => point.path.reduce((node, part) => node.childNodes[part], dom.noteArea);
-  if (entry.anchor && entry.focus) window.getSelection().setBaseAndExtent(resolve(entry.anchor), entry.anchor.offset, resolve(entry.focus), entry.focus.offset);
-  restoring = false;
+  try {
+    if (entry.anchor && entry.focus) window.getSelection().setBaseAndExtent(resolve(entry.anchor), entry.anchor.offset, resolve(entry.focus), entry.focus.offset);
+  } finally {
+    restoring = false;
+  }
   triggerSave();
 }
 

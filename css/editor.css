@@ -224,3 +224,9 @@ button.format-btn {
 .image-resize-handle.hidden {
   display: none;
 }
+
+#note-area a[href] {
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}

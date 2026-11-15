@@ -1,3 +1,4 @@
+import { initLinks } from "./links.js";
 import { initEditorHistory } from "./editor-history.js";
 import { dom } from "./dom.js";
 import { triggerSave } from "./storage.js";
@@ -79,6 +80,7 @@ export function format(command, value = null) {
 }
 
 export function initEditor() {
+  initLinks();
   initEditorHistory();
   [dom.textStyleBtn, dom.listPickerBtn, dom.moreFormatBtn, dom.pBtn, dom.h1Btn, dom.h2Btn, dom.underlineBtn, dom.strikeBtn].forEach((element) => {
     element.addEventListener("mousedown", (e) => e.preventDefault());

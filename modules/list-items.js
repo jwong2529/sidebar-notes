@@ -1,3 +1,4 @@
+import { linkify } from "./links.js";
 import { dom } from "./dom.js";
 import { triggerSave } from "./storage.js";
 import { editBlocks } from "./editor-history.js";
@@ -651,6 +652,7 @@ export function initListItems() {
         const target = last.nodeType === Node.ELEMENT_NODE ? rowContent(last) : last;
         selectPoint(target, target.nodeType === Node.TEXT_NODE ? target.length : target.childNodes.length);
       }
+      linkify(dom.noteArea, true);
     });
   });
 }
