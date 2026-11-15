@@ -11,14 +11,13 @@ export function getNoteSearchText(note) {
   if (state.noteSearchTextCache.has(note)) {
     return state.noteSearchTextCache.get(note);
   }
-  const template = document.createElement("template");
-  template.innerHTML = note.content || "";
-  template.content.querySelectorAll("img, script, style, input, svg, video, audio, iframe, object").forEach((element) => element.remove());
-  template.content.querySelectorAll("br, div, p, h1, h2, h3, h4, h5, h6, li, ul, ol, blockquote, pre, tr, td, th, section, article, hr").forEach((element) => {
+  const doc = new DOMParser().parseFromString(note.content || "", "text/html");
+  doc.body.querySelectorAll("img, script, style, input, svg, video, audio, iframe, object").forEach((element) => element.remove());
+  doc.body.querySelectorAll("br, div, p, h1, h2, h3, h4, h5, h6, li, ul, ol, blockquote, pre, tr, td, th, section, article, hr").forEach((element) => {
     element.before(document.createTextNode(" "));
     element.after(document.createTextNode(" "));
   });
-  const text = normalizeSearchText(template.content.textContent || "");
+  const text = normalizeSearchText(doc.body.textContent || "");
   state.noteSearchTextCache.set(note, text);
   return text;
 }
@@ -230,9 +229,24 @@ function createNoteRow(note, isFavoriteSection = false) {
   favoriteNoteBtn.type = "button";
   favoriteNoteBtn.title = note.favorite ? `Unfavorite ${note.title || "Untitled Note"}` : `Favorite ${note.title || "Untitled Note"}`;
   favoriteNoteBtn.setAttribute("aria-label", favoriteNoteBtn.title);
-  favoriteNoteBtn.innerHTML = note.favorite
-    ? '<svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor" stroke="currentColor" stroke-width="1"><polygon points="8 1.5 10.06 5.67 14.67 6.34 11.33 9.59 12.12 14.18 8 12.01 3.88 14.18 4.67 9.59 1.33 6.34 5.94 5.67 8 1.5"></polygon></svg>'
-    : '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><polygon points="8 1.5 10.06 5.67 14.67 6.34 11.33 9.59 12.12 14.18 8 12.01 3.88 14.18 4.67 9.59 1.33 6.34 5.94 5.67 8 1.5"></polygon></svg>';
+  const favSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  favSvg.setAttribute("viewBox", "0 0 16 16");
+  favSvg.setAttribute("aria-hidden", "true");
+  const favPolygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+  favPolygon.setAttribute("points", "8 1.5 10.06 5.67 14.67 6.34 11.33 9.59 12.12 14.18 8 12.01 3.88 14.18 4.67 9.59 1.33 6.34 5.94 5.67 8 1.5");
+  if (note.favorite) {
+    favSvg.setAttribute("fill", "currentColor");
+    favSvg.setAttribute("stroke", "currentColor");
+    favSvg.setAttribute("stroke-width", "1");
+  } else {
+    favSvg.setAttribute("fill", "none");
+    favSvg.setAttribute("stroke", "currentColor");
+    favSvg.setAttribute("stroke-width", "1.3");
+    favSvg.setAttribute("stroke-linecap", "round");
+    favSvg.setAttribute("stroke-linejoin", "round");
+  }
+  favSvg.append(favPolygon);
+  favoriteNoteBtn.append(favSvg);
   favoriteNoteBtn.addEventListener("click", (event) => {
     event.stopPropagation();
     note.favorite = !note.favorite;

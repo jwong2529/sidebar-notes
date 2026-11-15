@@ -61,7 +61,7 @@ export function bulletMarker() {
   return LIST_ITEM_REGISTRY.bullet.createPrefix();
 }
 
-export function createListItemMarkup(text = "", depth = 0, checked = false, type = "todo") {
+export function createListItemElement(text = "", depth = 0, checked = false, type = "todo") {
   const config = LIST_ITEM_REGISTRY[type] || LIST_ITEM_REGISTRY.todo;
   const item = document.createElement("div");
   item.setAttribute(config.attr, "true");
@@ -69,7 +69,11 @@ export function createListItemMarkup(text = "", depth = 0, checked = false, type
   item.style.marginLeft = `${depth * 24}px`;
   const prefix = config.createPrefix(checked);
   item.append(prefix, text ? document.createTextNode(text) : document.createElement("br"));
-  return item.outerHTML;
+  return item;
+}
+
+export function createListItemMarkup(text = "", depth = 0, checked = false, type = "todo") {
+  return createListItemElement(text, depth, checked, type).outerHTML;
 }
 
 export function stripListPrefixes(element) {
@@ -94,9 +98,7 @@ export function toggleListItem(type) {
     if (convertSelectionToListItems(selectedRange, type)) return;
   }
   if (!selectedRange.collapsed && convertSelectionToListItems(selectedRange, type)) return;
-  const template = document.createElement("template");
-  template.innerHTML = createListItemMarkup("", 0, false, type);
-  const row = template.content.firstElementChild;
+  const row = createListItemElement("", 0, false, type);
   const range = getEditorRange();
   const node = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
   const block = node.closest("div, p, h1, h2, li");
@@ -205,9 +207,7 @@ export function convertSelectionToListItems(range, type = "todo") {
         clearListItemAttributes(copy);
         if (!copy.hasChildNodes()) copy.append(document.createElement("br"));
         if (!remove) {
-          const template = document.createElement("template");
-          template.innerHTML = createListItemMarkup("", Number(group.source.dataset.depth) || 0, false, type);
-          const row = template.content.firstElementChild;
+          const row = createListItemElement("", Number(group.source.dataset.depth) || 0, false, type);
           row.lastChild.remove();
           row.append(...copy.childNodes);
           copy.replaceWith(row);
@@ -219,9 +219,7 @@ export function convertSelectionToListItems(range, type = "todo") {
       const content = row.range.cloneContents();
       let element;
       if (row.selected) {
-        const template = document.createElement("template");
-        template.innerHTML = createListItemMarkup("", 0, false, type);
-        element = template.content.firstElementChild;
+        element = createListItemElement("", 0, false, type);
         element.lastChild.remove();
       } else {
         element = document.createElement(group.source === dom.noteArea || !group.source.localName ? "div" : group.source.localName);
@@ -494,9 +492,7 @@ export function handleListItemKey(event) {
     tail.setStart(range.startContainer, range.startOffset);
     const trailing = tail.extractContents();
     ensureContent(content);
-    const template = document.createElement("template");
-    template.innerHTML = createListItemMarkup("", Number(item.dataset.depth) || 0, false, getListItemType(item));
-    const next = template.content.firstElementChild;
+    const next = createListItemElement("", Number(item.dataset.depth) || 0, false, getListItemType(item));
     next.lastChild.remove();
     next.append(trailing);
     item.after(next);

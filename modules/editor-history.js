@@ -58,7 +58,8 @@ export function restoreEditorHistory(direction) {
   restoring = true;
   index = next;
   const entry = entries[index];
-  dom.noteArea.innerHTML = entry.html;
+  const doc = new DOMParser().parseFromString(entry.html, "text/html");
+  dom.noteArea.replaceChildren(...doc.body.childNodes);
   dom.noteArea.focus();
   const resolve = (point) => point.path.reduce((node, part) => node.childNodes[part], dom.noteArea);
   try {
