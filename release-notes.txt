@@ -1,0 +1,35 @@
+1.5
+- Added automatic clickable links for typed and pasted URLs.
+- Improved bullet and checklist editing.
+- Fixed Undo/Redo for image insertion and resizing.
+- Fixed bugs.
+---
+
+1.4
+- Favorite your most important notes. A dedicated Favorites section now appears at the top of the sidebar menu for instant access to starred notes across all folders.
+- Added native bullet list support alongside interactive checklists.
+- The search bar now indexes and searches through note body contents in addition to note titles and folder names.
+- The sidebar now automatically restores your last active note when closing and reopening Firefox or toggling the sidebar panel.
+- Select multiple notes using Shift + click or Cmd/Ctrl + click to move groups of notes into folders in a single drag-and-drop action.
+- De-cluttered and refreshed the design of the active note toolbar as well as the editor toolbar.
+- Bug and UI fixes.
+---
+
+1.3
+- Implemented note search and folder organization.
+- Create, rename, and delete folders; drag notes into folders; reorder notes and folders.
+- Notes now support pasting or dropping images, as well as resizing.
+- Also improved UI and sidebar behavior.
+---
+
+1.2 
+- Minor improvements
+---
+
+1.1
+- Add Strikethrough option in text editor
+- Add keyboard shortcut to open extension in sidebar
+---
+
+1.0
+---
