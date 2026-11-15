@@ -2,6 +2,7 @@ import { dom } from "./dom.js";
 import { state } from "./state.js";
 import { triggerSave } from "./storage.js";
 import { getEditorRange, getEditorRangeAtPoint } from "./range.js";
+import { editBlocks, recordEditorState } from "./editor-history.js";
 
 export function positionImageResizeHandle() {
   if (!state.selectedImage || !dom.noteArea.contains(state.selectedImage)) {
@@ -32,20 +33,22 @@ export function insertImageFiles(files, range) {
     const reader = new FileReader();
     reader.addEventListener("load", () => {
       if (targetRevision === state.editorRevision && typeof reader.result === "string" && dom.noteArea.contains(targetRange.commonAncestorContainer)) {
-        const image = document.createElement("img");
-        image.src = reader.result;
-        image.alt = file.name || "Pasted image";
-        image.addEventListener("load", positionImageResizeHandle, { once: true });
-        targetRange.deleteContents();
-        targetRange.insertNode(image);
-        targetRange.setStartAfter(image);
-        targetRange.collapse(true);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(targetRange);
-        dom.noteArea.focus();
+        let image;
+        editBlocks(() => {
+          image = document.createElement("img");
+          image.src = reader.result;
+          image.alt = file.name || "Pasted image";
+          image.addEventListener("load", positionImageResizeHandle, { once: true });
+          targetRange.deleteContents();
+          targetRange.insertNode(image);
+          targetRange.setStartAfter(image);
+          targetRange.collapse(true);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(targetRange);
+          dom.noteArea.focus();
+        });
         selectImage(image);
-        triggerSave();
       }
       resolve();
     });
@@ -106,6 +109,7 @@ export function initImages() {
     const startX = event.clientX;
     const startWidth = state.selectedImage.getBoundingClientRect().width;
     const image = state.selectedImage;
+    recordEditorState();
     dom.imageResizeHandle.setPointerCapture(event.pointerId);
 
     const resize = (pointerEvent) => {
@@ -119,7 +123,7 @@ export function initImages() {
       dom.imageResizeHandle.removeEventListener("pointermove", resize);
       dom.imageResizeHandle.removeEventListener("pointerup", finishResize);
       dom.imageResizeHandle.removeEventListener("pointercancel", finishResize);
-      triggerSave();
+      recordEditorState();
     };
 
     dom.imageResizeHandle.addEventListener("pointermove", resize);
