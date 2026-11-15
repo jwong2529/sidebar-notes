@@ -358,10 +358,47 @@ export function handleParagraphBackspace(event) {
   return true;
 }
 
-function changeDepth(item, delta) {
-  const depth = Math.max(0, Math.min(12, (Number(item.dataset.depth) || 0) + delta));
-  item.dataset.depth = String(depth);
-  item.style.marginLeft = `${depth * 24}px`;
+export function changeDepth(item, delta) {
+  const isList = Boolean(getListItemType(item));
+  const currentDepth = Number(item.dataset.depth) || 0;
+  const depth = Math.max(0, Math.min(12, currentDepth + delta));
+  if (depth === 0 && !isList) {
+    item.removeAttribute("data-depth");
+    item.style.removeProperty("margin-left");
+  } else {
+    item.dataset.depth = String(depth);
+    item.style.marginLeft = `${depth * 24}px`;
+  }
+}
+
+function isBlockSelected(block, range) {
+  if (!range.intersectsNode(block)) return false;
+  if (block.contains(range.endContainer) && !block.contains(range.startContainer)) {
+    const content = rowContent(block);
+    const probe = document.createRange();
+    probe.selectNodeContents(content);
+    probe.collapse(true);
+    if (range.compareBoundaryPoints(Range.START_TO_END, probe) <= 0) return false;
+  }
+  return true;
+}
+
+function getSelectedBlocks(range) {
+  const blocks = [];
+  for (const child of Array.from(dom.noteArea.childNodes)) {
+    if (child.nodeType === Node.TEXT_NODE && !child.textContent.trim()) continue;
+    let block = child;
+    if (block.nodeType !== Node.ELEMENT_NODE) {
+      const wrapper = document.createElement("div");
+      block.replaceWith(wrapper);
+      wrapper.append(block);
+      block = wrapper;
+    }
+    if (isBlockSelected(block, range)) {
+      blocks.push(block);
+    }
+  }
+  return blocks;
 }
 
 function exitList(item) {
@@ -421,14 +458,16 @@ export function handleListItemKey(event) {
     if (event.key !== "Enter") return true;
     range = selection.getRangeAt(0);
   }
-  const item = listItemAtSelection();
-  if (!item) return event.defaultPrevented;
   if (event.key === "Tab" && !range.collapsed) {
-    const items = Array.from(dom.noteArea.querySelectorAll(LIST_ITEM_SELECTOR)).filter((row) => range.intersectsNode(row));
+    if (!dom.noteArea.contains(range.startContainer) || !dom.noteArea.contains(range.endContainer)) return false;
+    const blocks = getSelectedBlocks(range);
+    if (!blocks.length) return false;
     event.preventDefault();
-    editBlocks(() => items.forEach((row) => changeDepth(row, event.shiftKey ? -1 : 1)));
+    editBlocks(() => blocks.forEach((row) => changeDepth(row, event.shiftKey ? -1 : 1)));
     return true;
   }
+  const item = listItemAtSelection();
+  if (!item) return event.defaultPrevented;
   const content = rowContent(item);
   if (!content.contains(range.startContainer) || !content.contains(range.endContainer)) return false;
   const before = range.cloneRange();

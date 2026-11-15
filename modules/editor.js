@@ -1,8 +1,8 @@
 import { initLinks } from "./links.js";
-import { initEditorHistory } from "./editor-history.js";
+import { initEditorHistory, editBlocks } from "./editor-history.js";
 import { dom } from "./dom.js";
 import { triggerSave } from "./storage.js";
-import { listItemAtSelection, getListItemType, toggleListItem, handleParagraphBackspace, handleListItemKey } from "./list-items.js";
+import { listItemAtSelection, getListItemType, toggleListItem, handleParagraphBackspace, handleListItemKey, changeDepth } from "./list-items.js";
 
 export function closeFormatMenus() {
   dom.textStyleMenu.classList.add("hidden");
@@ -163,19 +163,33 @@ export function initEditor() {
   dom.noteArea.addEventListener("keydown", (e) => {
     if (handleParagraphBackspace(e)) return;
     if (handleListItemKey(e)) return;
-    if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      if (!document.execCommand("insertText", false, "\t")) {
+    if (e.key === "Tab" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.shiftKey) {
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
-          range.deleteContents();
-          const tabNode = document.createTextNode("\t");
-          range.insertNode(tabNode);
-          range.setStartAfter(tabNode);
-          range.setEndAfter(tabNode);
-          selection.removeAllRanges();
-          selection.addRange(range);
+          const element = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+          const block = element?.closest("div, p, h1, h2");
+          if (block && block !== dom.noteArea && Number(block.dataset.depth) > 0) {
+            e.preventDefault();
+            editBlocks(() => changeDepth(block, -1));
+          }
+        }
+        return;
+      }
+      e.preventDefault();
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        if (range.collapsed) {
+          if (!document.execCommand("insertText", false, "\t")) {
+            const tabNode = document.createTextNode("\t");
+            range.insertNode(tabNode);
+            range.setStartAfter(tabNode);
+            range.setEndAfter(tabNode);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
         }
       }
       triggerSave();
