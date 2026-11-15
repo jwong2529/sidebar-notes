@@ -1,5 +1,6 @@
 import { dom } from "./dom.js";
 import { triggerSave } from "./storage.js";
+import { editBlocks } from "./editor-history.js";
 import { getEditorRange } from "./range.js";
 
 export const LIST_ITEM_REGISTRY = {
@@ -71,6 +72,7 @@ export function createListItemMarkup(text = "", depth = 0, checked = false, type
 }
 
 export function stripListPrefixes(element) {
+  element.querySelectorAll("[data-list-content]").forEach((node) => node.replaceWith(...node.childNodes));
   element.querySelectorAll(LIST_PREFIX_SELECTOR).forEach((node) => node.remove());
 }
 
@@ -272,38 +274,62 @@ export function convertSelectionToListItems(range, type = "todo") {
   return true;
 }
 
-export function insertListItemEdit(range, rows, caretRow, caretOffset) {
-  const marker = document.createElement("span");
-  marker.dataset.todoCaret = "true";
-  rows[caretRow].insertBefore(marker, rows[caretRow].childNodes[caretOffset] || null);
-  const selection = window.getSelection();
-  selection.removeAllRanges();
-  selection.addRange(range);
-  const replaced = range.startContainer === range.endContainer && range.endOffset > range.startOffset
-    ? range.startContainer.childNodes[range.startOffset] : null;
-  const lastReplaced = replaced ? range.endContainer.childNodes[range.endOffset - 1] : null;
-  if (replaced?.nodeType === Node.ELEMENT_NODE) {
-    const start = document.createTextNode("\u200b");
-    const end = document.createTextNode("\u200b");
-    replaced.before(start);
-    lastReplaced.after(end);
-    range.setStartBefore(start);
-    range.setEndAfter(end);
-  }
-  selection.removeAllRanges();
-  selection.addRange(range);
-  document.execCommand("insertHTML", false, rows.map((row) => row.outerHTML).join(""));
+export function normalizeListRows(root = dom.noteArea) {
+  root.querySelectorAll("[data-todo-caret], [data-list-selection], [data-list-placeholder]").forEach((node) => node.remove());
+  root.querySelectorAll(LIST_ITEM_SELECTOR).forEach((row) => {
+    let content = row.querySelector(":scope > [data-list-content]");
+    if (!content) {
+      content = document.createElement("div");
+      content.dataset.listContent = "true";
+      const nodes = Array.from(row.childNodes).filter((node) => !node.matches?.(LIST_PREFIX_SELECTOR));
+      content.append(...nodes);
+      row.append(content);
+    }
+    row.querySelectorAll(":scope > input, :scope > [data-bullet-marker]").forEach((prefix) => {
+      prefix.contentEditable = "false";
+      prefix.setAttribute("tabindex", "-1");
+    });
+    if (!content.textContent.length && !content.querySelector("br, img, video, audio")) content.append(document.createElement("br"));
+  });
+}
 
-  const insertedMarker = dom.noteArea.querySelector("[data-todo-caret]");
-  if (insertedMarker) {
-    range = document.createRange();
-    range.setStartBefore(insertedMarker);
-    range.collapse(true);
-    insertedMarker.remove();
-    selection.removeAllRanges();
-    selection.addRange(range);
-  }
-  triggerSave();
+function selectPoint(node, offset = 0) {
+  dom.noteArea.focus();
+  window.getSelection().collapse(node, offset);
+}
+
+function rowContent(row) {
+  return row.querySelector(":scope > [data-list-content]") || row;
+}
+
+function emptyContent(content) {
+  return !content.textContent.length && !content.querySelector("img, video, audio");
+}
+
+function ensureContent(content) {
+  if (!content.textContent.length && !content.querySelector("br, img, video, audio")) content.append(document.createElement("br"));
+}
+
+export function insertListItemEdit(range, rows, caretRow, caretOffset) {
+  editBlocks(() => {
+    const marker = document.createTextNode("");
+    rows[caretRow].insertBefore(marker, rows[caretRow].childNodes[caretOffset] || null);
+    range.deleteContents();
+    const fragment = document.createDocumentFragment();
+    fragment.append(...rows);
+    range.insertNode(fragment);
+    normalizeListRows();
+    const parent = marker.parentNode;
+    const offset = Array.prototype.indexOf.call(parent.childNodes, marker);
+    marker.remove();
+    selectPoint(parent, offset);
+  });
+}
+
+function previousBlock(row) {
+  let previous = row.previousSibling;
+  while (previous?.nodeType === Node.TEXT_NODE && !previous.textContent.replace(/\u200b/g, "").length) previous = previous.previousSibling;
+  return previous?.matches?.("div, p, h1, h2, h3, h4, h5, h6") ? previous : null;
 }
 
 export function handleParagraphBackspace(event) {
@@ -311,105 +337,197 @@ export function handleParagraphBackspace(event) {
   const selection = window.getSelection();
   if (!selection.rangeCount || !selection.isCollapsed) return false;
   const range = selection.getRangeAt(0);
-  const node = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
-  const paragraph = node.closest("div, p, h1, h2");
-  if (!paragraph || paragraph === dom.noteArea || !dom.noteArea.contains(paragraph) || paragraph.closest(LIST_ITEM_SELECTOR)) return false;
-  let previous = paragraph.previousSibling;
-  while (previous?.nodeType === Node.TEXT_NODE && !previous.textContent.replace(/\u200b/g, "").trim()) previous = previous.previousSibling;
-  if (!previous?.matches?.(LIST_ITEM_SELECTOR)) return false;
-  const leading = document.createRange();
-  leading.selectNodeContents(paragraph);
-  leading.setEnd(range.startContainer, range.startOffset);
+  const element = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+  const paragraph = element.closest("div, p, h1, h2");
+  if (!paragraph || paragraph === dom.noteArea || paragraph.closest(LIST_ITEM_SELECTOR)) return false;
+  const previous = previousBlock(paragraph);
+  if (!previous) return false;
+  const leading = range.cloneRange();
+  leading.setStart(paragraph, 0);
   const fragment = leading.cloneContents();
-  if (fragment.textContent.length || fragment.querySelector("img, input, br, video, audio")) return false;
+  if (fragment.textContent.length || fragment.querySelector("br, img, video, audio")) return false;
   event.preventDefault();
-  const merged = previous.cloneNode(true);
-  if (merged.lastChild?.nodeName === "BR") merged.lastChild.remove();
-  const caretOffset = merged.childNodes.length;
-  const content = paragraph.cloneNode(true);
-  if (content.childNodes.length === 1 && content.firstChild.nodeName === "BR") content.firstChild.remove();
-  merged.append(...content.childNodes);
-  if (merged.childNodes.length === 1) merged.append(document.createElement("br"));
-  const replacement = document.createRange();
-  replacement.setStartBefore(previous);
-  replacement.setEndAfter(paragraph);
-  insertListItemEdit(replacement, [merged], 0, caretOffset);
+  editBlocks(() => {
+    const target = rowContent(previous);
+    if (target.lastChild?.nodeName === "BR") target.lastChild.remove();
+    const offset = target.childNodes.length;
+    if (!emptyContent(paragraph)) target.append(...paragraph.childNodes);
+    paragraph.remove();
+    ensureContent(target);
+    selectPoint(target, offset);
+  });
+  return true;
+}
+
+function changeDepth(item, delta) {
+  const depth = Math.max(0, Math.min(12, (Number(item.dataset.depth) || 0) + delta));
+  item.dataset.depth = String(depth);
+  item.style.marginLeft = `${depth * 24}px`;
+}
+
+function exitList(item) {
+  const content = rowContent(item);
+  const paragraph = document.createElement("div");
+  paragraph.append(...content.childNodes);
+  ensureContent(paragraph);
+  item.replaceWith(paragraph);
+  selectPoint(paragraph);
+}
+
+function selectionBlock(node) {
+  const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  return element.closest(LIST_ITEM_SELECTOR) || element.closest("div, p, h1, h2");
+}
+
+function deleteBlockSelection(range) {
+  const first = selectionBlock(range.startContainer);
+  const last = selectionBlock(range.endContainer);
+  if (!first || !last || first === last || first.parentNode !== last.parentNode || first === dom.noteArea) return false;
+  if (!getListItemType(first) && !getListItemType(last)) return false;
+  editBlocks(() => {
+    const start = rowContent(first);
+    const end = rowContent(last);
+    const head = document.createRange();
+    head.selectNodeContents(start);
+    head.setEnd(range.startContainer, range.startOffset);
+    const tail = document.createRange();
+    tail.selectNodeContents(end);
+    tail.setStart(range.endContainer, range.endOffset);
+    const leading = head.cloneContents();
+    const trailing = tail.cloneContents();
+    start.replaceChildren(leading);
+    const offset = start.childNodes.length;
+    start.append(trailing);
+    let current = first.nextSibling;
+    while (current) {
+      const next = current.nextSibling;
+      current.remove();
+      if (current === last) break;
+      current = next;
+    }
+    ensureContent(start);
+    selectPoint(start, offset);
+  });
   return true;
 }
 
 export function handleListItemKey(event) {
-  const item = listItemAtSelection();
-  if (!item || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return false;
+  if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return false;
+  if (!["Enter", "Tab", "Backspace", "Delete"].includes(event.key)) return false;
   const selection = window.getSelection();
   if (!selection.rangeCount) return false;
-  const range = selection.getRangeAt(0);
-  if (!item.contains(range.startContainer) || !item.contains(range.endContainer)) return false;
-  const before = document.createRange();
-  before.selectNodeContents(item);
-  before.setEnd(range.startContainer, range.startOffset);
+  let range = selection.getRangeAt(0);
+  if (!range.collapsed && event.key !== "Tab" && deleteBlockSelection(range)) {
+    event.preventDefault();
+    if (event.key !== "Enter") return true;
+    range = selection.getRangeAt(0);
+  }
+  const item = listItemAtSelection();
+  if (!item) return event.defaultPrevented;
+  if (event.key === "Tab" && !range.collapsed) {
+    const items = Array.from(dom.noteArea.querySelectorAll(LIST_ITEM_SELECTOR)).filter((row) => range.intersectsNode(row));
+    event.preventDefault();
+    editBlocks(() => items.forEach((row) => changeDepth(row, event.shiftKey ? -1 : 1)));
+    return true;
+  }
+  const content = rowContent(item);
+  if (!content.contains(range.startContainer) || !content.contains(range.endContainer)) return false;
+  const before = range.cloneRange();
+  before.setStart(content, 0);
   const leading = before.cloneContents();
-  leading.querySelectorAll("input, br, [data-bullet-marker]").forEach((node) => node.remove());
-  if (event.key === "Backspace" && range.collapsed && !leading.textContent.length && !leading.querySelector("img")) {
+  if (event.key === "Backspace") {
+    if (!range.collapsed || leading.textContent.length || leading.querySelector("br, img, video, audio")) return false;
     event.preventDefault();
-    const plain = document.createElement("div");
-    const content = item.cloneNode(true);
-    stripListPrefixes(content);
-    plain.append(...content.childNodes);
-    if (!plain.hasChildNodes()) plain.append(document.createElement("br"));
-    const replacement = document.createRange();
-    replacement.selectNode(item);
-    insertListItemEdit(replacement, [plain], 0, 0);
+    editBlocks(() => {
+      if (Number(item.dataset.depth) > 0) changeDepth(item, -1);
+      else exitList(item);
+    });
     return true;
   }
-  if (event.key === "Tab") {
+  if (event.key === "Delete") {
+    if (!range.collapsed) return false;
+    const tail = range.cloneRange();
+    tail.selectNodeContents(content);
+    tail.setStart(range.endContainer, range.endOffset);
+    const remaining = tail.cloneContents();
+    if (remaining.textContent.length || remaining.querySelector("img, video, audio")) return false;
+    const next = item.nextElementSibling;
+    if (!next?.matches("div, p, h1, h2")) return false;
     event.preventDefault();
-    const clone = item.cloneNode(true);
-    const depth = Math.max(0, Math.min(12, (Number(item.dataset.depth) || 0) + (event.shiftKey ? -1 : 1)));
-    clone.dataset.depth = String(depth);
-    clone.style.marginLeft = `${depth * 24}px`;
-    const replacement = document.createRange();
-    replacement.selectNode(item);
-    insertListItemEdit(replacement, [clone], 0, clone.childNodes.length - (clone.lastChild?.nodeName === "BR" ? 1 : 0));
+    editBlocks(() => {
+      if (content.lastChild?.nodeName === "BR") content.lastChild.remove();
+      const offset = content.childNodes.length;
+      const source = rowContent(next);
+      if (!emptyContent(source)) content.append(...source.childNodes);
+      next.remove();
+      ensureContent(content);
+      selectPoint(content, offset);
+    });
     return true;
   }
-  if (event.key !== "Enter" || event.shiftKey) return false;
   event.preventDefault();
-  if (!item.textContent.length && !item.querySelector("img, video, audio")) {
-    const plain = document.createElement("div");
-    plain.append(document.createElement("br"));
-    const replacement = document.createRange();
-    replacement.selectNode(item);
-    insertListItemEdit(replacement, [plain], 0, 0);
-    return true;
-  }
-  const after = document.createRange();
-  after.selectNodeContents(item);
-  after.setStart(range.endContainer, range.endOffset);
-  const trailing = after.cloneContents();
-  const first = item.cloneNode(false);
-  const prefixNode = item.querySelector(LIST_PREFIX_SELECTOR);
-  first.append(prefixNode ? prefixNode.cloneNode(true) : document.createElement("br"));
-  const head = before.cloneContents();
-  stripListPrefixes(head);
-  stripListPrefixes(trailing);
-  if (head.lastChild?.nodeName === "BR") head.lastChild.remove();
-  first.append(head);
-  if (first.childNodes.length === 1) first.append(document.createElement("br"));
-  const currentType = getListItemType(item) || "todo";
-  const template = document.createElement("template");
-  template.innerHTML = createListItemMarkup("", Number(item.dataset.depth) || 0, false, currentType);
-  const next = template.content.firstElementChild;
-  if (trailing.hasChildNodes()) {
+  editBlocks(() => {
+    if (event.key === "Tab") {
+      changeDepth(item, event.shiftKey ? -1 : 1);
+      return;
+    }
+    range.deleteContents();
+    if (event.shiftKey) {
+      const br = document.createElement("br");
+      range.insertNode(br);
+      const rest = document.createRange();
+      rest.selectNodeContents(content);
+      rest.setStartAfter(br);
+      const remaining = rest.cloneContents();
+      if (!remaining.textContent.length && !remaining.querySelector("br, img, video, audio")) br.after(document.createElement("br"));
+      selectPoint(br.parentNode, Array.prototype.indexOf.call(br.parentNode.childNodes, br) + 1);
+      return;
+    }
+    if (emptyContent(content)) {
+      if (Number(item.dataset.depth) > 0) changeDepth(item, -1);
+      else exitList(item);
+      return;
+    }
+    const tail = document.createRange();
+    tail.selectNodeContents(content);
+    tail.setStart(range.startContainer, range.startOffset);
+    const trailing = tail.extractContents();
+    ensureContent(content);
+    const template = document.createElement("template");
+    template.innerHTML = createListItemMarkup("", Number(item.dataset.depth) || 0, false, getListItemType(item));
+    const next = template.content.firstElementChild;
     next.lastChild.remove();
     next.append(trailing);
-  }
-  const replacement = document.createRange();
-  replacement.selectNode(item);
-  insertListItemEdit(replacement, [first, next], 1, 1);
+    item.after(next);
+    normalizeListRows();
+    selectPoint(rowContent(next));
+  });
   return true;
 }
 
 export function initListItems() {
+  document.addEventListener("selectionchange", () => {
+    const selection = window.getSelection();
+    const item = listItemAtSelection();
+    if (!item || !selection.isCollapsed) return;
+    const content = rowContent(item);
+    if (!content.contains(selection.anchorNode)) selectPoint(content, selection.anchorNode === item && selection.anchorOffset > 1 ? content.childNodes.length : 0);
+  });
+  dom.noteArea.addEventListener("beforeinput", (event) => {
+    if (event.isComposing || !event.inputType.startsWith("insert")) return;
+    const selection = window.getSelection();
+    if (!selection.rangeCount || selection.isCollapsed) return;
+    const range = selection.getRangeAt(0);
+    const first = selectionBlock(range.startContainer);
+    const last = selectionBlock(range.endContainer);
+    if (event.inputType === "insertText" && first !== last && first?.parentNode === last?.parentNode && (getListItemType(first) || getListItemType(last))) {
+      event.preventDefault();
+      editBlocks(() => {
+        deleteBlockSelection(range);
+        document.execCommand("insertText", false, event.data || "");
+      });
+    }
+  });
   dom.todoBtn.addEventListener("mousedown", (event) => event.preventDefault());
   dom.noteArea.addEventListener("mousedown", (event) => {
     if (event.target.matches('input[type="checkbox"]')) event.preventDefault();
@@ -418,8 +536,7 @@ export function initListItems() {
 
   dom.noteArea.addEventListener("change", (event) => {
     if (event.target.matches('input[type="checkbox"]')) {
-      event.target.toggleAttribute("checked", event.target.checked);
-      triggerSave();
+      editBlocks(() => event.target.toggleAttribute("checked", event.target.checked));
     }
   });
 
@@ -442,7 +559,7 @@ export function initListItems() {
           });
         }
       }
-      container.querySelectorAll("div").forEach((line) => line.append(document.createTextNode("\n")));
+      container.querySelectorAll("div:not([data-list-content])").forEach((line) => line.append(document.createTextNode("\n")));
       event.clipboardData.setData("text/plain", container.textContent);
       if (action === "cut") {
         document.execCommand("delete");
@@ -466,6 +583,7 @@ export function initListItems() {
       }
       const detectedType = getListItemType(node);
       const marker = node.hasAttribute("data-bullet-marker");
+      const content = node.hasAttribute("data-list-content");
       const depth = Math.max(0, Math.min(12, Number(node.dataset.depth) || 0));
       const checked = node.hasAttribute("checked");
       const checkbox = node.matches('input[type="checkbox"]');
@@ -491,6 +609,7 @@ export function initListItems() {
         node.toggleAttribute("checked", checked);
       }
       if (marker && node.tagName === "SPAN") node.replaceWith(bulletMarker());
+      if (content) node.dataset.listContent = "true";
       if (detectedType) {
         const config = LIST_ITEM_REGISTRY[detectedType];
         node.setAttribute(config.attr, "true");
@@ -498,8 +617,41 @@ export function initListItems() {
         node.style.marginLeft = `${depth * 24}px`;
       }
     }
-    document.execCommand("insertHTML", false, doc.body.innerHTML);
-    triggerSave();
+    editBlocks(() => {
+      const range = getEditorRange();
+      const block = selectionBlock(range.startContainer);
+      const content = block && block !== dom.noteArea ? rowContent(block) : null;
+      const nodes = Array.from(doc.body.childNodes);
+      if (!nodes.length) return;
+      if (content?.contains(range.startContainer) && content.contains(range.endContainer)) {
+        range.deleteContents();
+        const tail = document.createRange();
+        tail.selectNodeContents(content);
+        tail.setStart(range.startContainer, range.startOffset);
+        const trailing = tail.extractContents();
+        block.after(...nodes);
+        if (emptyContent(content)) block.remove();
+        else ensureContent(content);
+        normalizeListRows();
+        const last = nodes[nodes.length - 1];
+        if (last.nodeType === Node.ELEMENT_NODE) {
+          const target = rowContent(last);
+          const offset = target.childNodes.length;
+          target.append(trailing);
+          ensureContent(target);
+          selectPoint(target, offset);
+        } else selectPoint(last, last.length);
+      } else {
+        range.deleteContents();
+        const fragment = document.createDocumentFragment();
+        fragment.append(...nodes);
+        range.insertNode(fragment);
+        normalizeListRows();
+        const last = nodes[nodes.length - 1];
+        const target = last.nodeType === Node.ELEMENT_NODE ? rowContent(last) : last;
+        selectPoint(target, target.nodeType === Node.TEXT_NODE ? target.length : target.childNodes.length);
+      }
+    });
   });
 }
 

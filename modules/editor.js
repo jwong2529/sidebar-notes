@@ -1,3 +1,4 @@
+import { initEditorHistory } from "./editor-history.js";
 import { dom } from "./dom.js";
 import { triggerSave } from "./storage.js";
 import { listItemAtSelection, getListItemType, toggleListItem, handleParagraphBackspace, handleListItemKey } from "./list-items.js";
@@ -78,6 +79,7 @@ export function format(command, value = null) {
 }
 
 export function initEditor() {
+  initEditorHistory();
   [dom.textStyleBtn, dom.listPickerBtn, dom.moreFormatBtn, dom.pBtn, dom.h1Btn, dom.h2Btn, dom.underlineBtn, dom.strikeBtn].forEach((element) => {
     element.addEventListener("mousedown", (e) => e.preventDefault());
   });

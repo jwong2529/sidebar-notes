@@ -1,8 +1,9 @@
+import { resetEditorHistory } from "./modules/editor-history.js";
 import { dom } from "./modules/dom.js";
 import { state } from "./modules/state.js";
 import { updateStatus, triggerSave, loadStorage } from "./modules/storage.js";
 import { initDialogs, closeDeleteConfirmation } from "./modules/dialogs.js";
-import { initListItems, listItemAtSelection, createListItemMarkup, handleListItemKey, handleParagraphBackspace } from "./modules/list-items.js";
+import { normalizeListRows, initListItems, listItemAtSelection, createListItemMarkup, handleListItemKey, handleParagraphBackspace } from "./modules/list-items.js";
 import { initEditor, updateFormatIndicators, closeFormatMenus, positionFormatMenus, positionFormatMenu } from "./modules/editor.js";
 import { initImages } from "./modules/images.js";
 import { initTree, renderNoteList, closeNoteMenu, deleteNote } from "./modules/tree.js";
@@ -38,6 +39,8 @@ export function selectNote(id) {
     updateFavoriteButton(null);
     dom.noteArea.replaceChildren();
   }
+  normalizeListRows();
+  resetEditorHistory();
   renderNoteList();
   updateFormatIndicators();
 }
