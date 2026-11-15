@@ -1,3 +1,4 @@
 *.zip
 zip.txt
 zip.text
+tests/
