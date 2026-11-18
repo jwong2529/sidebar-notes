@@ -297,7 +297,7 @@ function selectPoint(node, offset = 0) {
   window.getSelection().collapse(node, offset);
 }
 
-function rowContent(row) {
+export function rowContent(row) {
   return row.querySelector(":scope > [data-list-content]") || row;
 }
 

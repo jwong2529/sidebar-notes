@@ -3,6 +3,7 @@ import { initEditorHistory, editBlocks } from "./editor-history.js";
 import { dom } from "./dom.js";
 import { triggerSave } from "./storage.js";
 import { listItemAtSelection, getListItemType, toggleListItem, handleParagraphBackspace, handleListItemKey, changeDepth } from "./list-items.js";
+import { initMarkdownShortcuts, handleMarkdownShortcut } from "./markdown.js";
 
 export function closeFormatMenus() {
   dom.textStyleMenu.classList.add("hidden");
@@ -70,6 +71,22 @@ export function updateFormatIndicators() {
   } else {
     dom.textStyleLabel.textContent = "Normal";
   }
+  updateHorizontalRuleSelection();
+}
+
+export function updateHorizontalRuleSelection() {
+  const selection = window.getSelection();
+  const hrs = dom.noteArea.querySelectorAll("hr");
+  if (!hrs.length) return;
+  if (!selection.rangeCount || selection.isCollapsed) {
+    hrs.forEach((hr) => hr.classList?.remove("selected"));
+    return;
+  }
+  const range = selection.getRangeAt(0);
+  hrs.forEach((hr) => {
+    const isSelected = typeof range.intersectsNode === "function" ? range.intersectsNode(hr) : false;
+    hr.classList?.toggle("selected", isSelected);
+  });
 }
 
 export function format(command, value = null) {
@@ -82,6 +99,7 @@ export function format(command, value = null) {
 export function initEditor() {
   initLinks();
   initEditorHistory();
+  initMarkdownShortcuts();
   [dom.textStyleBtn, dom.listPickerBtn, dom.moreFormatBtn, dom.pBtn, dom.h1Btn, dom.h2Btn, dom.underlineBtn, dom.strikeBtn].forEach((element) => {
     element.addEventListener("mousedown", (e) => e.preventDefault());
   });
@@ -154,6 +172,9 @@ export function initEditor() {
   dom.noteArea.addEventListener("keyup", updateFormatIndicators);
   dom.noteArea.addEventListener("mouseup", updateFormatIndicators);
   dom.noteArea.addEventListener("focus", updateFormatIndicators);
+  dom.noteArea.addEventListener("blur", () => {
+    dom.noteArea.querySelectorAll("hr.selected").forEach((hr) => hr.classList?.remove("selected"));
+  });
   document.addEventListener("selectionchange", () => {
     if (document.activeElement === dom.noteArea) {
       updateFormatIndicators();
@@ -161,6 +182,7 @@ export function initEditor() {
   });
 
   dom.noteArea.addEventListener("keydown", (e) => {
+    if (handleMarkdownShortcut(e)) return;
     if (handleParagraphBackspace(e)) return;
     if (handleListItemKey(e)) return;
     if (e.key === "Tab" && !e.ctrlKey && !e.metaKey && !e.altKey) {

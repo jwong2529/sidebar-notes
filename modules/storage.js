@@ -18,7 +18,12 @@ export function updateStatus(text) {
 export function triggerSave() {
   const note = state.notes.find((n) => n.id === state.activeNoteId);
   if (note) {
-    const content = dom.noteArea.innerHTML;
+    let content = dom.noteArea.innerHTML;
+    if (dom.noteArea.querySelector("hr.selected")) {
+      const clone = dom.noteArea.cloneNode(true);
+      clone.querySelectorAll("hr.selected").forEach((hr) => hr.classList.remove("selected"));
+      content = clone.innerHTML;
+    }
     if (note.content !== content) {
       note.content = content;
       state.noteSearchTextCache.delete(note);
