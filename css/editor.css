@@ -37,6 +37,24 @@
   margin: 8px 0 4px 0;
 }
 
+#note-area hr {
+  box-sizing: border-box;
+  border: none;
+  height: 2px;
+  background-color: var(--color-border);
+  margin: 12px 0;
+  border-radius: 1px;
+  transition: background-color 0.1s ease, box-shadow 0.1s ease;
+}
+
+#note-area hr.selected,
+#note-area hr::selection,
+#note-area hr::-moz-selection {
+  background-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.25);
+  border-radius: 2px;
+}
+
 #note-area img {
   max-width: 100%;
   height: auto;
@@ -149,7 +167,7 @@ button.format-btn {
 }
 
 #note-area [data-todo] > input[type="checkbox"] {
-  position: static;
+  position: relative;
   margin: 4px 0 0;
 }
 

@@ -7,6 +7,7 @@ import { normalizeListRows, initListItems, listItemAtSelection, createListItemMa
 import { initEditor, updateFormatIndicators, closeFormatMenus, positionFormatMenus, positionFormatMenu } from "./modules/editor.js";
 import { initImages } from "./modules/images.js";
 import { initTree, renderNoteList, closeNoteMenu, deleteNote } from "./modules/tree.js";
+import { handleMarkdownShortcut } from "./modules/markdown.js";
 
 export function updateFavoriteButton(note) {
   if (!dom.favoriteBtn) {
@@ -126,7 +127,9 @@ dom.exportBtn.addEventListener("click", () => {
   closeNoteOptionsMenu();
   const note = state.notes.find((n) => n.id === state.activeNoteId);
   const title = (note ? note.title : "notes").replace(/[^a-z0-9]/gi, "_").toLowerCase();
-  const notesHtml = dom.noteArea.innerHTML;
+  const clone = dom.noteArea.cloneNode(true);
+  clone.querySelectorAll("hr.selected").forEach((hr) => hr.classList.remove("selected"));
+  const notesHtml = clone.innerHTML;
   const blob = new Blob([notesHtml], { type: "text/html" });
   const url = URL.createObjectURL(blob);
 
@@ -213,6 +216,7 @@ window.handleTodoKey = handleListItemKey;
 window.handleParagraphBackspace = handleParagraphBackspace;
 window.todoMarkup = createListItemMarkup;
 window.todoAtSelection = listItemAtSelection;
+window.handleMarkdownShortcut = handleMarkdownShortcut;
 Object.defineProperty(window, "activeNoteId", {
   get() { return state.activeNoteId; },
   set(val) { state.activeNoteId = val; },
