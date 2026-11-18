@@ -1,3 +1,8 @@
+1.6
+- Added Markdown typing shortcuts (auto-formatting) for headings (# and ##), checklists ([ ] and [x]), bullet lists (- and *), and horizontal divider lines (---).
+- Fixed bugs.
+---
+
 1.5
 - Added automatic clickable links for typed and pasted URLs.
 - Improved bullet and checklist editing.

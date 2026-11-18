@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Sidebar Notes",
-  "version": "1.5",
+  "version": "1.6",
   "description": "A simple notes extension integrated into Firefox's native sidebar panel.",
   "browser_specific_settings": {
     "gecko": {
