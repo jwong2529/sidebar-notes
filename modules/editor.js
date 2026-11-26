@@ -5,6 +5,7 @@ import { triggerSave } from "./storage.js";
 import { listItemAtSelection, getListItemType, toggleListItem, handleParagraphBackspace, handleListItemKey, changeDepth } from "./list-items.js";
 import { initMarkdownShortcuts, handleMarkdownShortcut } from "./markdown.js";
 import { initTextColor, updateTextColorIndicator } from "./text-color.js";
+import { updateWordCount } from "./word-count.js";
 
 export function closeFormatMenus() {
   dom.textStyleMenu.classList.add("hidden");
@@ -243,5 +244,8 @@ export function initEditor() {
     }
   });
 
-  dom.noteArea.addEventListener("input", triggerSave);
+  dom.noteArea.addEventListener("input", () => {
+    updateWordCount();
+    triggerSave();
+  });
 }

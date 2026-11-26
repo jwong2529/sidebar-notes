@@ -88,6 +88,12 @@
                   </svg>
                   <span>Theme</span>
                 </button>
+                <button id="word-count-btn" class="dropdown-item format-item" type="button" role="menuitemcheckbox" aria-checked="false" title="Word count">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 7h16M4 12h10M4 17h7"></path>
+                  </svg>
+                  <span>Word count</span>
+                </button>
               </div>
             </div>
           </div>
@@ -189,7 +195,10 @@
         </button>
       </div>
     </div>
-    <div id="status-bar">Saved</div>
+    <div id="editor-footer" class="editor-footer">
+      <div id="word-count" class="word-count hidden" aria-live="polite">0 words · 0 characters</div>
+      <div id="status-bar">Saved</div>
+    </div>
   </div>
   <div id="delete-confirmation" class="delete-confirmation hidden" role="alertdialog" aria-modal="true" aria-labelledby="delete-confirm-title">
     <div class="delete-confirm-card">

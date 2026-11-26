@@ -10,6 +10,7 @@ export const state = {
   dialogAnchor: null,
   dialogReturnFocus: null,
   editorRevision: 0,
+  showWordCount: false,
   collapsedFolders: new Set(),
   selectedNoteIds: new Set(),
   selectionAnchorId: null,

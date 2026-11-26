@@ -8,6 +8,7 @@ import { initEditor, updateFormatIndicators, closeFormatMenus, positionFormatMen
 import { initImages, closeImageContextMenu } from "./modules/images.js";
 import { initTree, renderNoteList, closeNoteMenu, deleteNote } from "./modules/tree.js";
 import { handleMarkdownShortcut } from "./modules/markdown.js";
+import { updateWordCount, setWordCountEnabled } from "./modules/word-count.js";
 
 export function updateFavoriteButton(note) {
   if (!dom.favoriteBtn) {
@@ -45,6 +46,7 @@ export function selectNote(id) {
   resetEditorHistory();
   renderNoteList();
   updateFormatIndicators();
+  updateWordCount();
 }
 
 dom.favoriteBtn.addEventListener("click", () => {
@@ -148,6 +150,15 @@ dom.themeBtn.addEventListener("click", () => {
   browser.storage.local.set({ theme: isDark ? "dark" : "light" });
 });
 
+dom.wordCountBtn.addEventListener("click", () => {
+  closeNoteOptionsMenu();
+  const next = !state.showWordCount;
+  setWordCountEnabled(next);
+  if (typeof browser !== "undefined" && browser?.storage?.local) {
+    browser.storage.local.set({ showWordCount: next }).catch(() => {});
+  }
+});
+
 window.addEventListener("resize", () => {
   positionFormatMenus();
 });
@@ -205,6 +216,7 @@ loadStorage().then((result) => {
   if (result.theme === "dark") {
     document.body.classList.add("dark-theme");
   }
+  setWordCountEnabled(Boolean(result.showWordCount));
   updateStatus("Saved");
 });
 

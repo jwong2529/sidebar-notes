@@ -1,5 +1,6 @@
 import { dom } from "./dom.js";
 import { state } from "./state.js";
+import { updateWordCount } from "./word-count.js";
 
 let saveTimeout = null;
 let statusHideTimeout = null;
@@ -30,6 +31,7 @@ export function triggerSave() {
     }
   }
 
+  updateWordCount();
   updateStatus("Saving...");
 
   if (saveTimeout) {
@@ -46,7 +48,7 @@ export function triggerSave() {
 }
 
 export async function loadStorage() {
-  const result = await browser.storage.local.get(["notesList", "foldersList", "theme", "activeNoteId"]);
+  const result = await browser.storage.local.get(["notesList", "foldersList", "theme", "activeNoteId", "showWordCount"]);
   state.folders = result.foldersList || [];
   if (result.notesList && result.notesList.length > 0) {
     state.notes = result.notesList;
