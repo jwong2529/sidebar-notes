@@ -1,3 +1,12 @@
+1.7
+- You can now organize notes with numbered lists.
+- Added theme-aware text colors that automatically adapt between light and dark mode.
+- Right-click any image in your notes to copy it straight to your clipboard or download it to your device.
+- Keep track of your writing with a live word and character counter, available in the options menu.
+- Copy and paste bulleted, numbered, and checklist items into other apps without losing your list formatting.
+- Refreshed the editor toolbar with tighter, cleaner spacing.
+---
+
 1.6
 - Added Markdown typing shortcuts (auto-formatting) for headings (# and ##), checklists ([ ] and [x]), bullet lists (- and *), and horizontal divider lines (---).
 - Fixed bugs.
