@@ -646,6 +646,126 @@ export function initListItems() {
     }
   });
 
+function isFullListItemSelection(item, range) {
+  const content = rowContent(item);
+  if (!content.contains(range.startContainer) || !content.contains(range.endContainer)) {
+    return range.intersectsNode(item);
+  }
+  const head = document.createRange();
+  head.selectNodeContents(content);
+  head.setEnd(range.startContainer, range.startOffset);
+  const tail = document.createRange();
+  tail.selectNodeContents(content);
+  tail.setStart(range.endContainer, range.endOffset);
+  const headFrag = head.cloneContents();
+  const tailFrag = tail.cloneContents();
+  return !headFrag.textContent.length && !headFrag.querySelector("img, video, audio")
+    && !tailFrag.textContent.length && !tailFrag.querySelector("img, video, audio");
+}
+
+function ensureClonedListPrefixes(container, firstBlock) {
+  for (const row of container.querySelectorAll(LIST_ITEM_SELECTOR)) {
+    const type = getListItemType(row);
+    const config = LIST_ITEM_REGISTRY[type];
+    if (!config) continue;
+    const hasPrefix = Array.from(row.childNodes).some((node) => config.isPrefix(node));
+    if (!hasPrefix) {
+      let checked = false;
+      if (type === "todo" && row === container.firstElementChild && firstBlock) {
+        checked = Boolean(firstBlock.querySelector('input[type="checkbox"][checked]'));
+      }
+      if (type === "number" && row === container.firstElementChild && firstBlock) {
+        const marker = firstBlock.querySelector("[data-number-marker]");
+        row.prepend(config.createPrefix(marker?.textContent || "1."));
+      } else {
+        row.prepend(config.createPrefix(checked));
+      }
+    }
+  }
+}
+
+function serializeClipboardHtml(source) {
+  const root = document.createElement("div");
+  const stack = [];
+  for (const node of Array.from(source.childNodes)) {
+    const type = node.nodeType === Node.ELEMENT_NODE ? getListItemType(node) : null;
+    if (!type) {
+      stack.length = 0;
+      root.append(node.cloneNode(true));
+      continue;
+    }
+    const depth = Math.max(0, Math.min(12, Number(node.dataset?.depth) || 0));
+    const tag = type === "number" ? "ol" : "ul";
+    while (stack.length && (stack[stack.length - 1].depth > depth || (stack[stack.length - 1].depth === depth && stack[stack.length - 1].type !== type))) {
+      stack.pop();
+    }
+    while (!stack.length || stack[stack.length - 1].depth < depth) {
+      const list = document.createElement(tag);
+      const nextDepth = stack.length ? stack[stack.length - 1].depth + 1 : depth;
+      if (!stack.length) {
+        root.append(list);
+      } else {
+        const parent = stack[stack.length - 1];
+        if (!parent.lastLi) {
+          parent.lastLi = document.createElement("li");
+          parent.list.append(parent.lastLi);
+        }
+        parent.lastLi.append(list);
+      }
+      stack.push({ list, type, depth: nextDepth, lastLi: null });
+    }
+    const li = document.createElement("li");
+    if (type === "todo") {
+      li.setAttribute("data-todo", "true");
+      const checkbox = node.querySelector('input[type="checkbox"]');
+      li.append(LIST_ITEM_REGISTRY.todo.createPrefix(Boolean(checkbox?.hasAttribute("checked"))));
+    }
+    const content = rowContent(node);
+    for (const child of Array.from(content.childNodes)) {
+      li.append(child.cloneNode(true));
+    }
+    stack[stack.length - 1].list.append(li);
+    stack[stack.length - 1].lastLi = li;
+  }
+  return root.innerHTML;
+}
+
+function flattenHtmlList(listNode, depth = 0) {
+  const rows = [];
+  const defaultType = listNode.tagName === "OL" ? "number" : "bullet";
+  for (const child of Array.from(listNode.children)) {
+    if (child.tagName !== "LI") continue;
+    const isTodo = child.hasAttribute("data-todo") || Boolean(child.querySelector(':scope > input[type="checkbox"]'));
+    const type = isTodo ? "todo" : defaultType;
+    const checkbox = isTodo ? child.querySelector(':scope > input[type="checkbox"]') : null;
+    const checked = Boolean(checkbox?.hasAttribute("checked"));
+    const nestedLists = [];
+    const inlineNodes = [];
+    for (const node of Array.from(child.childNodes)) {
+      if (node === checkbox) continue;
+      if (node.nodeType === Node.ELEMENT_NODE && (node.tagName === "UL" || node.tagName === "OL")) {
+        nestedLists.push(node);
+      } else {
+        inlineNodes.push(node);
+      }
+    }
+    if (inlineNodes.length || !nestedLists.length) {
+      const row = createListItemElement("", Math.min(12, depth), checked, type);
+      row.lastChild.remove();
+      const content = document.createElement("div");
+      content.dataset.listContent = "true";
+      content.append(...inlineNodes);
+      ensureContent(content);
+      row.append(content);
+      rows.push(row);
+    }
+    for (const nested of nestedLists) {
+      rows.push(...flattenHtmlList(nested, depth + 1));
+    }
+  }
+  return rows;
+}
+
   for (const action of ["copy", "cut"]) {
     dom.noteArea.addEventListener(action, (event) => {
       const selection = window.getSelection();
@@ -653,9 +773,25 @@ export function initListItems() {
       const range = selection.getRangeAt(0);
       const container = document.createElement("div");
       container.append(range.cloneContents());
+      const firstBlock = selectionBlock(range.startContainer);
+      const lastBlock = selectionBlock(range.endContainer);
+      const firstType = getListItemType(firstBlock);
+      if (firstType && firstBlock === lastBlock && !container.querySelector(`${LIST_ITEM_SELECTOR}, ${LIST_PREFIX_SELECTOR}`) && isFullListItemSelection(firstBlock, range)) {
+        const row = firstBlock.cloneNode(false);
+        const content = document.createElement("div");
+        content.dataset.listContent = "true";
+        content.append(...container.childNodes);
+        row.append(content);
+        container.replaceChildren(row);
+      }
       if (!container.querySelector(`${LIST_ITEM_SELECTOR}, ${LIST_PREFIX_SELECTOR}`)) return;
+      ensureClonedListPrefixes(container, firstBlock);
       event.preventDefault();
-      event.clipboardData.setData("text/html", container.innerHTML);
+      event.clipboardData.setData("text/html", serializeClipboardHtml(container));
+      for (const row of container.querySelectorAll(LIST_ITEM_SELECTOR)) {
+        const depth = Math.max(0, Math.min(12, Number(row.dataset?.depth) || 0));
+        if (depth > 0) row.prepend(document.createTextNode("  ".repeat(depth)));
+      }
       for (const config of Object.values(LIST_ITEM_REGISTRY)) {
         if (config.toText && config.isPrefix) {
           container.querySelectorAll("*").forEach((el) => {
@@ -682,7 +818,7 @@ export function initListItems() {
     if (event.defaultPrevented) return;
     const html = event.clipboardData.getData("text/html");
     const doc = new DOMParser().parseFromString(html, "text/html");
-    if (!doc.querySelector(`${LIST_ITEM_SELECTOR}, ${LIST_PREFIX_SELECTOR}`)) return;
+    if (!doc.querySelector(`${LIST_ITEM_SELECTOR}, ${LIST_PREFIX_SELECTOR}, ul, ol, li`)) return;
     event.preventDefault();
     const allowed = new Set(["DIV", "P", "BR", "SPAN", "B", "STRONG", "I", "EM", "U", "S", "UL", "OL", "LI", "H1", "H2", "INPUT", "A", "IMG", "BLOCKQUOTE", "PRE", "CODE", "TABLE", "TBODY", "TR", "TD", "TH"]);
     doc.body.querySelectorAll("script, style, iframe, object").forEach((node) => node.remove());
@@ -728,6 +864,21 @@ export function initListItems() {
         node.dataset.depth = String(depth);
         node.style.marginLeft = `${depth * 24}px`;
       }
+    }
+    for (const list of Array.from(doc.body.querySelectorAll("ul, ol"))) {
+      if (list.parentElement?.closest("ul, ol")) continue;
+      const rows = flattenHtmlList(list, 0);
+      list.replaceWith(...rows);
+    }
+    for (const li of Array.from(doc.body.querySelectorAll("li"))) {
+      const row = createListItemElement("", 0, false, "bullet");
+      row.lastChild.remove();
+      const content = document.createElement("div");
+      content.dataset.listContent = "true";
+      content.append(...li.childNodes);
+      ensureContent(content);
+      row.append(content);
+      li.replaceWith(row);
     }
     editBlocks(() => {
       const range = getEditorRange();
