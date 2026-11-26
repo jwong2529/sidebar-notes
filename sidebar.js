@@ -5,7 +5,7 @@ import { updateStatus, triggerSave, loadStorage } from "./modules/storage.js";
 import { initDialogs, closeDeleteConfirmation } from "./modules/dialogs.js";
 import { normalizeListRows, initListItems, listItemAtSelection, createListItemMarkup, handleListItemKey, handleParagraphBackspace } from "./modules/list-items.js";
 import { initEditor, updateFormatIndicators, closeFormatMenus, positionFormatMenus, positionFormatMenu } from "./modules/editor.js";
-import { initImages } from "./modules/images.js";
+import { initImages, closeImageContextMenu } from "./modules/images.js";
 import { initTree, renderNoteList, closeNoteMenu, deleteNote } from "./modules/tree.js";
 import { handleMarkdownShortcut } from "./modules/markdown.js";
 
@@ -23,6 +23,7 @@ export function selectNote(id) {
   state.editorRevision += 1;
   state.selectedImage = null;
   dom.imageResizeHandle.classList.add("hidden");
+  closeImageContextMenu();
   state.activeNoteId = id;
   const note = state.notes.find((n) => n.id === id);
   if (note) {

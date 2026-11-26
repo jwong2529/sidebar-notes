@@ -119,6 +119,13 @@ button.format-btn {
   right: 0;
 }
 
+.image-context-menu {
+  top: 0;
+  left: 0;
+  margin-top: 0;
+  z-index: 120;
+}
+
 .format-item {
   gap: 8px;
   padding: 6px 10px;
