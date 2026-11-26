@@ -4,6 +4,7 @@ import { dom } from "./dom.js";
 import { triggerSave } from "./storage.js";
 import { listItemAtSelection, getListItemType, toggleListItem, handleParagraphBackspace, handleListItemKey, changeDepth } from "./list-items.js";
 import { initMarkdownShortcuts, handleMarkdownShortcut } from "./markdown.js";
+import { initTextColor, updateTextColorIndicator } from "./text-color.js";
 
 export function closeFormatMenus() {
   dom.textStyleMenu.classList.add("hidden");
@@ -12,6 +13,10 @@ export function closeFormatMenus() {
   dom.listPickerBtn.setAttribute("aria-expanded", "false");
   dom.moreFormatMenu.classList.add("hidden");
   dom.moreFormatBtn.setAttribute("aria-expanded", "false");
+  if (dom.textColorMenu) {
+    dom.textColorMenu.classList.add("hidden");
+    dom.textColorBtn.setAttribute("aria-expanded", "false");
+  }
   if (dom.noteOptionsMenu) {
     dom.noteOptionsMenu.classList.add("hidden");
     dom.noteOptionsBtn.setAttribute("aria-expanded", "false");
@@ -36,7 +41,7 @@ export function positionFormatMenu(menu) {
 }
 
 export function positionFormatMenus() {
-  [dom.textStyleMenu, dom.listPickerMenu, dom.moreFormatMenu, dom.noteOptionsMenu].filter(Boolean).forEach(positionFormatMenu);
+  [dom.textStyleMenu, dom.listPickerMenu, dom.moreFormatMenu, dom.textColorMenu, dom.noteOptionsMenu].filter(Boolean).forEach(positionFormatMenu);
 }
 
 export function updateFormatIndicators() {
@@ -72,6 +77,7 @@ export function updateFormatIndicators() {
   } else {
     dom.textStyleLabel.textContent = "Normal";
   }
+  updateTextColorIndicator();
   updateHorizontalRuleSelection();
 }
 
@@ -101,6 +107,7 @@ export function initEditor() {
   initLinks();
   initEditorHistory();
   initMarkdownShortcuts();
+  initTextColor({ closeFormatMenus, positionFormatMenu, updateFormatIndicators });
   [dom.textStyleBtn, dom.listPickerBtn, dom.moreFormatBtn, dom.pBtn, dom.h1Btn, dom.h2Btn, dom.underlineBtn, dom.strikeBtn].forEach((element) => {
     element.addEventListener("mousedown", (e) => e.preventDefault());
   });

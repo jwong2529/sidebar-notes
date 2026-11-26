@@ -37,5 +37,8 @@ export const dom = {
   listPickerBtn: document.getElementById("list-picker-btn"),
   listPickerMenu: document.getElementById("list-picker-menu"),
   moreFormatBtn: document.getElementById("more-format-btn"),
-  moreFormatMenu: document.getElementById("more-format-menu")
+  moreFormatMenu: document.getElementById("more-format-menu"),
+  textColorBtn: document.getElementById("text-color-btn"),
+  textColorIndicator: document.getElementById("text-color-indicator"),
+  textColorMenu: document.getElementById("text-color-menu")
 };

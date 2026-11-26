@@ -187,7 +187,7 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     closeNoteOptionsMenu();
     dom.noteOptionsBtn.focus();
-  } else if (event.key === "Escape" && (!dom.textStyleMenu.classList.contains("hidden") || !dom.listPickerMenu.classList.contains("hidden") || !dom.moreFormatMenu.classList.contains("hidden"))) {
+  } else if (event.key === "Escape" && (!dom.textStyleMenu.classList.contains("hidden") || !dom.listPickerMenu.classList.contains("hidden") || !dom.moreFormatMenu.classList.contains("hidden") || !dom.textColorMenu?.classList.contains("hidden"))) {
     event.preventDefault();
     closeFormatMenus();
   }

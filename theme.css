@@ -26,6 +26,15 @@
   --color-note-hover: rgba(143, 143, 157, 0.12);
   --color-note-selected: rgba(143, 143, 157, 0.2);
   --color-favorite: #f5a623;
+  --text-color-gray: #6b7280;
+  --text-color-brown: #92400e;
+  --text-color-orange: #c2410c;
+  --text-color-yellow: #b45309;
+  --text-color-green: #15803d;
+  --text-color-blue: #1d4ed8;
+  --text-color-purple: #7e22ce;
+  --text-color-pink: #be185d;
+  --text-color-red: #dc2626;
 }
 
 body.dark-theme {
@@ -56,4 +65,13 @@ body.dark-theme {
   --color-note-hover: rgba(143, 143, 157, 0.12);
   --color-note-selected: rgba(143, 143, 157, 0.2);
   --color-favorite: #ffb833;
+  --text-color-gray: #9ca3af;
+  --text-color-brown: #d97706;
+  --text-color-orange: #fb923c;
+  --text-color-yellow: #facc15;
+  --text-color-green: #4ade80;
+  --text-color-blue: #60a5fa;
+  --text-color-purple: #c084fc;
+  --text-color-pink: #f472b6;
+  --text-color-red: #f87171;
 }
