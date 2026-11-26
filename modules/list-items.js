@@ -25,6 +25,7 @@ export const LIST_ITEM_REGISTRY = {
     attr: "data-bullet",
     createPrefix() {
       const marker = document.createElement("span");
+      marker.setAttribute("data-bullet-marker", "true");
       marker.dataset.bulletMarker = "true";
       marker.setAttribute("aria-hidden", "true");
       marker.style.cssText = "display: inline-block; width: 5px; height: 5px; margin: 0 9px 0 4px; vertical-align: 2px; border-radius: 50%; background: currentColor;";
@@ -36,12 +37,32 @@ export const LIST_ITEM_REGISTRY = {
     toText() {
       return "- ";
     }
+  },
+  number: {
+    attr: "data-number",
+    createPrefix(value = "1.") {
+      const marker = document.createElement("span");
+      marker.setAttribute("data-number-marker", "true");
+      marker.dataset.numberMarker = "true";
+      marker.setAttribute("aria-hidden", "true");
+      marker.contentEditable = "false";
+      marker.setAttribute("tabindex", "-1");
+      marker.textContent = typeof value === "string" ? value : "1.";
+      return marker;
+    },
+    isPrefix(node) {
+      return node.hasAttribute?.("data-number-marker");
+    },
+    toText(node) {
+      const text = node.textContent?.trim();
+      return text ? `${text} ` : "1. ";
+    }
   }
 };
 
 export const LIST_ITEM_ATTRS = Object.values(LIST_ITEM_REGISTRY).map((c) => c.attr);
 export const LIST_ITEM_SELECTOR = Object.values(LIST_ITEM_REGISTRY).map((c) => `[${c.attr}]`).join(", ");
-export const LIST_PREFIX_SELECTOR = 'input[type="checkbox"], [data-bullet-marker]';
+export const LIST_PREFIX_SELECTOR = 'input[type="checkbox"], [data-bullet-marker], [data-number-marker]';
 
 export function getListItemType(element) {
   for (const [type, config] of Object.entries(LIST_ITEM_REGISTRY)) {
@@ -273,6 +294,39 @@ export function convertSelectionToListItems(range, type = "todo") {
   return true;
 }
 
+export function renumberLists(root = dom.noteArea) {
+  const container = (dom?.noteArea && dom.noteArea.contains(root)) ? dom.noteArea : root;
+  if (!container) return;
+  const elements = Array.from(container.childNodes || []).filter((node) => node.nodeType === 1);
+  const counters = new Map();
+  for (const child of elements) {
+    if (child.matches?.("[data-number]") || child.hasAttribute?.("data-number")) {
+      const depth = Math.max(0, Math.min(12, Number(child.dataset?.depth ?? child.getAttribute?.("data-depth")) || 0));
+      for (const key of Array.from(counters.keys())) {
+        if (key > depth) counters.delete(key);
+      }
+      const count = (counters.get(depth) || 0) + 1;
+      counters.set(depth, count);
+      const expected = `${count}.`;
+      let marker = null;
+      for (const node of child.childNodes || []) {
+        if (node.nodeType === 1 && (node.matches?.("[data-number-marker]") || node.hasAttribute?.("data-number-marker"))) {
+          marker = node;
+          break;
+        }
+      }
+      if (marker) {
+        if (marker.textContent !== expected) marker.textContent = expected;
+      } else {
+        const newMarker = LIST_ITEM_REGISTRY.number.createPrefix(expected);
+        child.insertBefore(newMarker, child.firstChild);
+      }
+    } else {
+      counters.clear();
+    }
+  }
+}
+
 export function normalizeListRows(root = dom.noteArea) {
   root.querySelectorAll("[data-todo-caret], [data-list-selection], [data-list-placeholder]").forEach((node) => node.remove());
   root.querySelectorAll(LIST_ITEM_SELECTOR).forEach((row) => {
@@ -284,12 +338,13 @@ export function normalizeListRows(root = dom.noteArea) {
       content.append(...nodes);
       row.append(content);
     }
-    row.querySelectorAll(":scope > input, :scope > [data-bullet-marker]").forEach((prefix) => {
+    row.querySelectorAll(":scope > input, :scope > [data-bullet-marker], :scope > [data-number-marker]").forEach((prefix) => {
       prefix.contentEditable = "false";
       prefix.setAttribute("tabindex", "-1");
     });
     if (!content.textContent.length && !content.querySelector("br, img, video, audio")) content.append(document.createElement("br"));
   });
+  renumberLists(root);
 }
 
 function selectPoint(node, offset = 0) {
@@ -298,7 +353,7 @@ function selectPoint(node, offset = 0) {
 }
 
 export function rowContent(row) {
-  return row.querySelector(":scope > [data-list-content]") || row;
+  return row.querySelector?.(":scope > [data-list-content]") || row.querySelector?.("[data-list-content]") || row;
 }
 
 function emptyContent(content) {
@@ -353,6 +408,7 @@ export function handleParagraphBackspace(event) {
     if (!emptyContent(paragraph)) target.append(...paragraph.childNodes);
     paragraph.remove();
     ensureContent(target);
+    renumberLists(dom.noteArea);
     selectPoint(target, offset);
   });
   return true;
@@ -368,6 +424,9 @@ export function changeDepth(item, delta) {
   } else {
     item.dataset.depth = String(depth);
     item.style.marginLeft = `${depth * 24}px`;
+  }
+  if (item.hasAttribute("data-number")) {
+    renumberLists(item.parentElement || dom.noteArea);
   }
 }
 
@@ -402,11 +461,16 @@ function getSelectedBlocks(range) {
 }
 
 function exitList(item) {
+  const isNumber = item.hasAttribute("data-number");
+  const parent = item.parentElement || dom.noteArea;
   const content = rowContent(item);
   const paragraph = document.createElement("div");
   paragraph.append(...content.childNodes);
   ensureContent(paragraph);
   item.replaceWith(paragraph);
+  if (isNumber) {
+    renumberLists(parent);
+  }
   selectPoint(paragraph);
 }
 
@@ -442,6 +506,7 @@ function deleteBlockSelection(range) {
       current = next;
     }
     ensureContent(start);
+    renumberLists(dom.noteArea);
     selectPoint(start, offset);
   });
   return true;
@@ -463,7 +528,10 @@ export function handleListItemKey(event) {
     const blocks = getSelectedBlocks(range);
     if (!blocks.length) return false;
     event.preventDefault();
-    editBlocks(() => blocks.forEach((row) => changeDepth(row, event.shiftKey ? -1 : 1)));
+    editBlocks(() => {
+      blocks.forEach((row) => changeDepth(row, event.shiftKey ? -1 : 1));
+      renumberLists(dom.noteArea);
+    });
     return true;
   }
   const item = listItemAtSelection();
@@ -499,6 +567,7 @@ export function handleListItemKey(event) {
       if (!emptyContent(source)) content.append(...source.childNodes);
       next.remove();
       ensureContent(content);
+      renumberLists(dom.noteArea);
       selectPoint(content, offset);
     });
     return true;
@@ -569,6 +638,7 @@ export function initListItems() {
     if (event.target.matches('input[type="checkbox"]')) event.preventDefault();
   });
   dom.bulletBtn.addEventListener("mousedown", (event) => event.preventDefault());
+  dom.numberBtn?.addEventListener("mousedown", (event) => event.preventDefault());
 
   dom.noteArea.addEventListener("change", (event) => {
     if (event.target.matches('input[type="checkbox"]')) {
@@ -598,8 +668,12 @@ export function initListItems() {
       container.querySelectorAll("div:not([data-list-content])").forEach((line) => line.append(document.createTextNode("\n")));
       event.clipboardData.setData("text/plain", container.textContent);
       if (action === "cut") {
-        document.execCommand("delete");
-        triggerSave();
+        editBlocks(() => {
+          if (!deleteBlockSelection(range)) {
+            document.execCommand("delete");
+          }
+          normalizeListRows();
+        });
       }
     });
   }
@@ -619,6 +693,7 @@ export function initListItems() {
       }
       const detectedType = getListItemType(node);
       const marker = node.hasAttribute("data-bullet-marker");
+      const numberMarker = node.hasAttribute("data-number-marker");
       const content = node.hasAttribute("data-list-content");
       const depth = Math.max(0, Math.min(12, Number(node.dataset.depth) || 0));
       const checked = node.hasAttribute("checked");
@@ -645,6 +720,7 @@ export function initListItems() {
         node.toggleAttribute("checked", checked);
       }
       if (marker && node.tagName === "SPAN") node.replaceWith(bulletMarker());
+      if (numberMarker && node.tagName === "SPAN") node.replaceWith(LIST_ITEM_REGISTRY.number.createPrefix(node.textContent));
       if (content) node.dataset.listContent = "true";
       if (detectedType) {
         const config = LIST_ITEM_REGISTRY[detectedType];

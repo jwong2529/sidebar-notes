@@ -209,6 +209,7 @@ loadStorage().then((result) => {
 
 window.noteArea = dom.noteArea;
 window.bulletBtn = dom.bulletBtn;
+window.numberBtn = dom.numberBtn;
 window.todoBtn = dom.todoBtn;
 window.triggerSave = triggerSave;
 window.selectNote = selectNote;

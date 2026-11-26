@@ -54,6 +54,7 @@ export function updateFormatIndicators() {
   const currentListItem = listItemAtSelection();
   const listType = currentListItem ? getListItemType(currentListItem) : null;
   dom.bulletBtn.classList.toggle("active", listType === "bullet");
+  dom.numberBtn.classList.toggle("active", listType === "number");
   dom.todoBtn.classList.toggle("active", listType === "todo");
   dom.listPickerBtn.classList.toggle("active", Boolean(listType));
 
@@ -162,6 +163,10 @@ export function initEditor() {
 
   dom.bulletBtn.addEventListener("click", () => {
     toggleListItem("bullet");
+    closeFormatMenus();
+  });
+  dom.numberBtn.addEventListener("click", () => {
+    toggleListItem("number");
     closeFormatMenus();
   });
   dom.todoBtn.addEventListener("click", () => {

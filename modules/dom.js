@@ -26,6 +26,7 @@ export const dom = {
   underlineBtn: document.getElementById("underline-btn"),
   strikeBtn: document.getElementById("strike-btn"),
   bulletBtn: document.getElementById("bullet-btn"),
+  numberBtn: document.getElementById("number-btn"),
   todoBtn: document.getElementById("todo-btn"),
   pBtn: document.getElementById("p-btn"),
   h1Btn: document.getElementById("h1-btn"),

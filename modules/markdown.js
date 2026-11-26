@@ -1,7 +1,7 @@
 import { dom } from "./dom.js";
 import { editBlocks } from "./editor-history.js";
 import { updateFormatIndicators } from "./editor.js";
-import { createListItemElement, normalizeListRows, rowContent, LIST_ITEM_SELECTOR } from "./list-items.js";
+import { createListItemElement, normalizeListRows, rowContent, LIST_ITEM_SELECTOR, LIST_PREFIX_SELECTOR } from "./list-items.js";
 
 let lastAutoFormat = null;
 
@@ -166,7 +166,7 @@ function handleAutoFormatBackspace(event) {
     return true;
   }
 
-  if (lastAutoFormat.type === "todo" || lastAutoFormat.type === "bullet") {
+  if (lastAutoFormat.type === "todo" || lastAutoFormat.type === "bullet" || lastAutoFormat.type === "number") {
     if (!lastAutoFormat.element.isConnected) {
       lastAutoFormat = null;
       return false;
@@ -193,7 +193,7 @@ function handleAutoFormatBackspace(event) {
       const textNode = document.createTextNode(prefix);
       block.appendChild(textNode);
       while (content.firstChild) {
-        if (content.firstChild.nodeName !== "BR") {
+        if (content.firstChild.nodeName !== "BR" && !content.firstChild.matches?.(LIST_PREFIX_SELECTOR)) {
           block.appendChild(content.firstChild);
         } else {
           content.firstChild.remove();
@@ -447,6 +447,23 @@ export function handleMarkdownShortcut(event) {
         const row = convertToList(block, "bullet", false);
         lastAutoFormat = {
           type: "bullet",
+          element: row,
+          prefix: textBefore + " ",
+          originalTag
+        };
+        updateFormatIndicators();
+      });
+      return true;
+    }
+
+    const numberMatch = textBefore.match(/^(\d+)[\.\)]$/);
+    if (numberMatch) {
+      event.preventDefault();
+      editBlocks(() => {
+        preRange.deleteContents();
+        const row = convertToList(block, "number", false);
+        lastAutoFormat = {
+          type: "number",
           element: row,
           prefix: textBefore + " ",
           originalTag
