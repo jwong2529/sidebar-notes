@@ -1,5 +1,5 @@
 import { dom } from "./dom.js";
-import { state } from "./state.js";
+import { state, getActiveNote, getNote } from "./state.js";
 import { updateWordCount } from "./word-count.js";
 
 let saveTimeout = null;
@@ -38,7 +38,7 @@ export function getCleanNoteHtml() {
 }
 
 export function triggerSave() {
-  const note = state.notes.find((n) => n.id === state.activeNoteId);
+  const note = getActiveNote();
   if (note) {
     const content = getCleanNoteHtml();
     if (note.content !== content) {
@@ -76,7 +76,7 @@ export async function loadStorage() {
   state.folders = result.foldersList || [];
   if (result.notesList && result.notesList.length > 0) {
     state.notes = result.notesList;
-    const lastActive = state.notes.find((n) => n.id === result.activeNoteId);
+    const lastActive = getNote(result.activeNoteId);
     state.activeNoteId = lastActive ? lastActive.id : state.notes[0].id;
   } else {
     state.notes = [{ id: "default", title: "My Note", content: "", favorite: false }];

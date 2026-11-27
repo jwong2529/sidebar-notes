@@ -1,24 +1,16 @@
 import { resetEditorHistory } from "./modules/editor-history.js";
 import { dom } from "./modules/dom.js";
-import { state } from "./modules/state.js";
+import { state, getActiveNote, getNote } from "./modules/state.js";
 import { updateStatus, triggerSave, loadStorage, setStorageValues, getCleanNoteHtml } from "./modules/storage.js";
-import { initDialogs, closeDeleteConfirmation } from "./modules/dialogs.js";
+import { initDialogs, closeDeleteConfirmation, beginInlineRename } from "./modules/dialogs.js";
 import { normalizeListRows, initListItems, listItemAtSelection, createListItemMarkup, handleListItemKey, handleParagraphBackspace } from "./modules/list-items.js";
 import { initEditor, updateFormatIndicators, closeFormatMenus, positionFormatMenus, positionFormatMenu } from "./modules/editor.js";
 import { initImages, closeImageContextMenu } from "./modules/images.js";
-import { initTree, renderNoteList, closeNoteMenu, deleteNote } from "./modules/tree.js";
+import { initTree, renderNoteList, closeNoteMenu, deleteNote, updateFavoriteButton } from "./modules/tree.js";
 import { handleMarkdownShortcut } from "./modules/markdown.js";
 import { updateWordCount, setWordCountEnabled } from "./modules/word-count.js";
 
-export function updateFavoriteButton(note) {
-  if (!dom.favoriteBtn) {
-    return;
-  }
-  const isFav = Boolean(note?.favorite);
-  dom.favoriteBtn.classList.toggle("favorited", isFav);
-  dom.favoriteBtn.title = isFav ? "Unfavorite note" : "Favorite note";
-  dom.favoriteBtn.setAttribute("aria-label", dom.favoriteBtn.title);
-}
+export { updateFavoriteButton };
 
 export function selectNote(id) {
   state.editorRevision += 1;
@@ -26,7 +18,7 @@ export function selectNote(id) {
   dom.imageResizeHandle.classList.add("hidden");
   closeImageContextMenu();
   state.activeNoteId = id;
-  const note = state.notes.find((n) => n.id === id);
+  const note = getNote(id);
   if (note) {
     dom.noteTitleText.textContent = note.title;
     updateFavoriteButton(note);
@@ -48,7 +40,7 @@ export function selectNote(id) {
 }
 
 dom.favoriteBtn.addEventListener("click", () => {
-  const note = state.notes.find((n) => n.id === state.activeNoteId);
+  const note = getActiveNote();
   if (note) {
     note.favorite = !note.favorite;
     updateFavoriteButton(note);
@@ -58,41 +50,27 @@ dom.favoriteBtn.addEventListener("click", () => {
 });
 
 function beginTitleRename() {
-  const note = state.notes.find((n) => n.id === state.activeNoteId);
-  if (note && !document.querySelector(".title-name-input")) {
-    dom.noteTitleText.hidden = true;
-    const input = document.createElement("input");
-    input.className = "inline-name-input title-name-input";
-    input.value = note.title || "Untitled Note";
-    dom.noteTitleText.parentElement.appendChild(input);
-    const finish = (save) => {
-      if (!input.isConnected) {
-        return;
-      }
-      const name = input.value.trim();
-      input.remove();
-      dom.noteTitleText.hidden = false;
-      if (save && name) {
-        note.title = name;
-        dom.noteTitleText.textContent = name;
-        renderNoteList();
-        triggerSave();
-      }
-    };
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        finish(true);
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        finish(false);
-      }
-    });
-    input.addEventListener("blur", () => finish(true));
-    input.focus();
-    input.select();
+  const note = getActiveNote();
+  if (!note || document.querySelector(".title-name-input")) {
+    return;
   }
+  dom.noteTitleText.hidden = true;
+  const restoreTitle = () => {
+    dom.noteTitleText.hidden = false;
+  };
+  beginInlineRename(
+    dom.noteTitleText.parentElement,
+    note.title || "Untitled Note",
+    (name) => {
+      note.title = name;
+      dom.noteTitleText.textContent = name;
+      restoreTitle();
+      renderNoteList();
+      triggerSave();
+    },
+    restoreTitle,
+    "title-name-input"
+  );
 }
 
 dom.noteTitleText.addEventListener("click", beginTitleRename);
@@ -126,7 +104,7 @@ dom.noteOptionsBtn.addEventListener("click", (e) => {
 
 dom.exportBtn.addEventListener("click", () => {
   closeNoteOptionsMenu();
-  const note = state.notes.find((n) => n.id === state.activeNoteId);
+  const note = getActiveNote();
   const title = (note ? note.title : "notes").replace(/[^a-z0-9]/gi, "_").toLowerCase();
   const notesHtml = getCleanNoteHtml();
   const blob = new Blob([notesHtml], { type: "text/html" });

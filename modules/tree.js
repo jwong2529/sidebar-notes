@@ -1,7 +1,17 @@
 import { dom } from "./dom.js";
-import { state } from "./state.js";
+import { state, getActiveNote, getNote } from "./state.js";
 import { triggerSave, updateStatus } from "./storage.js";
 import { showActionDialog, beginInlineRename, positionSearchMenu } from "./dialogs.js";
+
+export function updateFavoriteButton(note) {
+  if (!dom.favoriteBtn) {
+    return;
+  }
+  const isFav = Boolean(note?.favorite);
+  dom.favoriteBtn.classList.toggle("favorited", isFav);
+  dom.favoriteBtn.title = isFav ? "Unfavorite note" : "Favorite note";
+  dom.favoriteBtn.setAttribute("aria-label", dom.favoriteBtn.title);
+}
 
 export function normalizeSearchText(text) {
   return text.replace(/\s+/g, " ").trim().toLocaleLowerCase();
@@ -141,7 +151,7 @@ export function deleteNote(note, selectNote) {
 
 export function addNote(selectNote) {
   dom.noteSearch.value = "";
-  const activeNote = state.notes.find((note) => note.id === state.activeNoteId);
+  const activeNote = getActiveNote();
   const newNote = {
     id: Date.now().toString(),
     title: "Untitled Note",
@@ -250,10 +260,8 @@ function createNoteRow(note, isFavoriteSection = false) {
   favoriteNoteBtn.addEventListener("click", (event) => {
     event.stopPropagation();
     note.favorite = !note.favorite;
-    if (note.id === state.activeNoteId && dom.favoriteBtn) {
-      dom.favoriteBtn.classList.toggle("favorited", Boolean(note.favorite));
-      dom.favoriteBtn.title = note.favorite ? "Unfavorite note" : "Favorite note";
-      dom.favoriteBtn.setAttribute("aria-label", dom.favoriteBtn.title);
+    if (note.id === state.activeNoteId) {
+      updateFavoriteButton(note);
     }
     renderNoteList();
     triggerSave();
@@ -356,13 +364,11 @@ export function renderNoteList() {
       favHeading.classList.remove("drop-target");
       const ids = state.draggedNoteIds.length ? state.draggedNoteIds : [state.draggedNoteId];
       ids.forEach((id) => {
-        const n = state.notes.find((item) => item.id === id);
+        const n = getNote(id);
         if (n) {
           n.favorite = true;
-          if (n.id === state.activeNoteId && dom.favoriteBtn) {
-            dom.favoriteBtn.classList.add("favorited");
-            dom.favoriteBtn.title = "Unfavorite note";
-            dom.favoriteBtn.setAttribute("aria-label", dom.favoriteBtn.title);
+          if (n.id === state.activeNoteId) {
+            updateFavoriteButton(n);
           }
         }
       });

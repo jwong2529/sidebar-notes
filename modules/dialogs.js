@@ -54,9 +54,9 @@ export function closeDeleteConfirmation() {
   focusTarget.focus();
 }
 
-export function beginInlineRename(container, currentName, onSave, onCancel) {
+export function beginInlineRename(container, currentName, onSave, onCancel, className = "") {
   const input = document.createElement("input");
-  input.className = "inline-name-input";
+  input.className = className ? `inline-name-input ${className}` : "inline-name-input";
   input.type = "text";
   input.value = currentName;
   container.appendChild(input);
