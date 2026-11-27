@@ -7,21 +7,44 @@ import { initMarkdownShortcuts, handleMarkdownShortcut } from "./markdown.js";
 import { initTextColor, updateTextColorIndicator } from "./text-color.js";
 import { updateWordCount } from "./word-count.js";
 
+function getFormatMenus() {
+  return [
+    { button: dom.textStyleBtn, menu: dom.textStyleMenu },
+    { button: dom.listPickerBtn, menu: dom.listPickerMenu },
+    { button: dom.moreFormatBtn, menu: dom.moreFormatMenu },
+    { button: dom.textColorBtn, menu: dom.textColorMenu },
+    { button: dom.noteOptionsBtn, menu: dom.noteOptionsMenu }
+  ].filter(({ button, menu }) => button && menu);
+}
+
 export function closeFormatMenus() {
-  dom.textStyleMenu.classList.add("hidden");
-  dom.textStyleBtn.setAttribute("aria-expanded", "false");
-  dom.listPickerMenu.classList.add("hidden");
-  dom.listPickerBtn.setAttribute("aria-expanded", "false");
-  dom.moreFormatMenu.classList.add("hidden");
-  dom.moreFormatBtn.setAttribute("aria-expanded", "false");
-  if (dom.textColorMenu) {
-    dom.textColorMenu.classList.add("hidden");
-    dom.textColorBtn.setAttribute("aria-expanded", "false");
+  getFormatMenus().forEach(({ button, menu }) => {
+    menu.classList.add("hidden");
+    button.setAttribute("aria-expanded", "false");
+  });
+}
+
+export function hasOpenFormatMenu() {
+  return getFormatMenus().some(({ menu }) => !menu.classList.contains("hidden"));
+}
+
+export function bindFormatMenu(button, menu, { onBeforeOpen } = {}) {
+  if (!button || !menu) {
+    return;
   }
-  if (dom.noteOptionsMenu) {
-    dom.noteOptionsMenu.classList.add("hidden");
-    dom.noteOptionsBtn.setAttribute("aria-expanded", "false");
-  }
+  button.addEventListener("click", (e) => {
+    const isHidden = menu.classList.contains("hidden");
+    if (onBeforeOpen) {
+      onBeforeOpen();
+    }
+    closeFormatMenus();
+    if (isHidden) {
+      menu.classList.remove("hidden");
+      button.setAttribute("aria-expanded", "true");
+      positionFormatMenu(menu);
+    }
+    e.stopPropagation();
+  });
 }
 
 export function positionFormatMenu(menu) {
@@ -42,7 +65,7 @@ export function positionFormatMenu(menu) {
 }
 
 export function positionFormatMenus() {
-  [dom.textStyleMenu, dom.listPickerMenu, dom.moreFormatMenu, dom.textColorMenu, dom.noteOptionsMenu].filter(Boolean).forEach(positionFormatMenu);
+  getFormatMenus().forEach(({ menu }) => positionFormatMenu(menu));
 }
 
 export function updateFormatIndicators() {
@@ -108,43 +131,14 @@ export function initEditor() {
   initLinks();
   initEditorHistory();
   initMarkdownShortcuts({ updateFormatIndicators });
-  initTextColor({ closeFormatMenus, positionFormatMenu, updateFormatIndicators });
+  initTextColor({ closeFormatMenus, positionFormatMenu, updateFormatIndicators, bindFormatMenu });
   [dom.textStyleBtn, dom.listPickerBtn, dom.moreFormatBtn, dom.pBtn, dom.h1Btn, dom.h2Btn, dom.underlineBtn, dom.strikeBtn].forEach((element) => {
     element.addEventListener("mousedown", (e) => e.preventDefault());
   });
 
-  dom.textStyleBtn.addEventListener("click", (e) => {
-    const isHidden = dom.textStyleMenu.classList.contains("hidden");
-    closeFormatMenus();
-    if (isHidden) {
-      dom.textStyleMenu.classList.remove("hidden");
-      dom.textStyleBtn.setAttribute("aria-expanded", "true");
-      positionFormatMenu(dom.textStyleMenu);
-    }
-    e.stopPropagation();
-  });
-
-  dom.listPickerBtn.addEventListener("click", (e) => {
-    const isHidden = dom.listPickerMenu.classList.contains("hidden");
-    closeFormatMenus();
-    if (isHidden) {
-      dom.listPickerMenu.classList.remove("hidden");
-      dom.listPickerBtn.setAttribute("aria-expanded", "true");
-      positionFormatMenu(dom.listPickerMenu);
-    }
-    e.stopPropagation();
-  });
-
-  dom.moreFormatBtn.addEventListener("click", (e) => {
-    const isHidden = dom.moreFormatMenu.classList.contains("hidden");
-    closeFormatMenus();
-    if (isHidden) {
-      dom.moreFormatMenu.classList.remove("hidden");
-      dom.moreFormatBtn.setAttribute("aria-expanded", "true");
-      positionFormatMenu(dom.moreFormatMenu);
-    }
-    e.stopPropagation();
-  });
+  bindFormatMenu(dom.textStyleBtn, dom.textStyleMenu);
+  bindFormatMenu(dom.listPickerBtn, dom.listPickerMenu);
+  bindFormatMenu(dom.moreFormatBtn, dom.moreFormatMenu);
 
   dom.boldBtn.addEventListener("click", () => format("bold"));
   dom.italicBtn.addEventListener("click", () => format("italic"));

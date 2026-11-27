@@ -379,7 +379,7 @@ function handlePendingColorInput(event) {
   });
 }
 
-export function initTextColor({ closeFormatMenus, positionFormatMenu, updateFormatIndicators }) {
+export function initTextColor({ closeFormatMenus, positionFormatMenu, updateFormatIndicators, bindFormatMenu }) {
   if (!dom.textColorBtn || !dom.textColorMenu) return;
 
   const grid = document.createElement("div");
@@ -407,16 +407,20 @@ export function initTextColor({ closeFormatMenus, positionFormatMenu, updateForm
   dom.textColorMenu.replaceChildren(grid);
 
   dom.textColorBtn.addEventListener("mousedown", (e) => e.preventDefault());
-  dom.textColorBtn.addEventListener("click", (e) => {
-    const isHidden = dom.textColorMenu.classList.contains("hidden");
-    closeFormatMenus();
-    if (isHidden) {
-      dom.textColorMenu.classList.remove("hidden");
-      dom.textColorBtn.setAttribute("aria-expanded", "true");
-      positionFormatMenu(dom.textColorMenu);
-    }
-    e.stopPropagation();
-  });
+  if (bindFormatMenu) {
+    bindFormatMenu(dom.textColorBtn, dom.textColorMenu);
+  } else {
+    dom.textColorBtn.addEventListener("click", (e) => {
+      const isHidden = dom.textColorMenu.classList.contains("hidden");
+      closeFormatMenus();
+      if (isHidden) {
+        dom.textColorMenu.classList.remove("hidden");
+        dom.textColorBtn.setAttribute("aria-expanded", "true");
+        positionFormatMenu(dom.textColorMenu);
+      }
+      e.stopPropagation();
+    });
+  }
 
   dom.noteArea.addEventListener("beforeinput", handlePendingColorInput);
   document.addEventListener("selectionchange", () => {

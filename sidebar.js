@@ -4,7 +4,7 @@ import { state, getActiveNote, getNote } from "./modules/state.js";
 import { updateStatus, triggerSave, loadStorage, setStorageValues, getCleanNoteHtml } from "./modules/storage.js";
 import { initDialogs, closeDeleteConfirmation, beginInlineRename } from "./modules/dialogs.js";
 import { normalizeListRows, initListItems, listItemAtSelection, createListItemMarkup, handleListItemKey, handleParagraphBackspace } from "./modules/list-items.js";
-import { initEditor, updateFormatIndicators, closeFormatMenus, positionFormatMenus, positionFormatMenu } from "./modules/editor.js";
+import { initEditor, updateFormatIndicators, closeFormatMenus, positionFormatMenus, bindFormatMenu, hasOpenFormatMenu } from "./modules/editor.js";
 import { initImages, closeImageContextMenu } from "./modules/images.js";
 import { initTree, renderNoteList, closeNoteMenu, deleteNote, updateFavoriteButton } from "./modules/tree.js";
 import { handleMarkdownShortcut } from "./modules/markdown.js";
@@ -88,19 +88,7 @@ export function closeNoteOptionsMenu() {
   }
 }
 
-dom.noteOptionsBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  const isHidden = dom.noteOptionsMenu.classList.contains("hidden");
-  closeFormatMenus();
-  closeNoteMenu();
-  if (isHidden) {
-    dom.noteOptionsMenu.classList.remove("hidden");
-    dom.noteOptionsBtn.setAttribute("aria-expanded", "true");
-    positionFormatMenu(dom.noteOptionsMenu);
-  } else {
-    closeNoteOptionsMenu();
-  }
-});
+bindFormatMenu(dom.noteOptionsBtn, dom.noteOptionsMenu, { onBeforeOpen: closeNoteMenu });
 
 dom.exportBtn.addEventListener("click", () => {
   closeNoteOptionsMenu();
@@ -171,7 +159,7 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     closeNoteOptionsMenu();
     dom.noteOptionsBtn.focus();
-  } else if (event.key === "Escape" && (!dom.textStyleMenu.classList.contains("hidden") || !dom.listPickerMenu.classList.contains("hidden") || !dom.moreFormatMenu.classList.contains("hidden") || !dom.textColorMenu?.classList.contains("hidden"))) {
+  } else if (event.key === "Escape" && hasOpenFormatMenu()) {
     event.preventDefault();
     closeFormatMenus();
   }
