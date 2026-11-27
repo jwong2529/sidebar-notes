@@ -1,7 +1,7 @@
 import { resetEditorHistory } from "./modules/editor-history.js";
 import { dom } from "./modules/dom.js";
 import { state } from "./modules/state.js";
-import { updateStatus, triggerSave, loadStorage } from "./modules/storage.js";
+import { updateStatus, triggerSave, loadStorage, setStorageValues, getCleanNoteHtml } from "./modules/storage.js";
 import { initDialogs, closeDeleteConfirmation } from "./modules/dialogs.js";
 import { normalizeListRows, initListItems, listItemAtSelection, createListItemMarkup, handleListItemKey, handleParagraphBackspace } from "./modules/list-items.js";
 import { initEditor, updateFormatIndicators, closeFormatMenus, positionFormatMenus, positionFormatMenu } from "./modules/editor.js";
@@ -34,9 +34,7 @@ export function selectNote(id) {
     const doc = parser.parseFromString(note.content || "", "text/html");
     doc.body.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => checkbox.removeAttribute("contenteditable"));
     dom.noteArea.replaceChildren(...doc.body.childNodes);
-    if (typeof browser !== "undefined" && browser?.storage?.local) {
-      browser.storage.local.set({ activeNoteId: id }).catch(() => {});
-    }
+    setStorageValues({ activeNoteId: id });
   } else {
     dom.noteTitleText.textContent = "Untitled Note";
     updateFavoriteButton(null);
@@ -130,9 +128,7 @@ dom.exportBtn.addEventListener("click", () => {
   closeNoteOptionsMenu();
   const note = state.notes.find((n) => n.id === state.activeNoteId);
   const title = (note ? note.title : "notes").replace(/[^a-z0-9]/gi, "_").toLowerCase();
-  const clone = dom.noteArea.cloneNode(true);
-  clone.querySelectorAll("hr.selected").forEach((hr) => hr.classList.remove("selected"));
-  const notesHtml = clone.innerHTML;
+  const notesHtml = getCleanNoteHtml();
   const blob = new Blob([notesHtml], { type: "text/html" });
   const url = URL.createObjectURL(blob);
 
@@ -147,16 +143,14 @@ dom.exportBtn.addEventListener("click", () => {
 dom.themeBtn.addEventListener("click", () => {
   closeNoteOptionsMenu();
   const isDark = document.body.classList.toggle("dark-theme");
-  browser.storage.local.set({ theme: isDark ? "dark" : "light" });
+  setStorageValues({ theme: isDark ? "dark" : "light" });
 });
 
 dom.wordCountBtn.addEventListener("click", () => {
   closeNoteOptionsMenu();
   const next = !state.showWordCount;
   setWordCountEnabled(next);
-  if (typeof browser !== "undefined" && browser?.storage?.local) {
-    browser.storage.local.set({ showWordCount: next }).catch(() => {});
-  }
+  setStorageValues({ showWordCount: next });
 });
 
 window.addEventListener("resize", () => {

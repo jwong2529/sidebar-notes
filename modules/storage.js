@@ -16,15 +16,31 @@ export function updateStatus(text) {
   }
 }
 
+function getLocalStorage() {
+  return typeof browser !== "undefined" ? browser?.storage?.local || null : null;
+}
+
+export function setStorageValues(values) {
+  const local = getLocalStorage();
+  if (!local) {
+    return Promise.resolve();
+  }
+  return local.set(values).catch(() => {});
+}
+
+export function getCleanNoteHtml() {
+  if (!dom.noteArea.querySelector("hr.selected")) {
+    return dom.noteArea.innerHTML;
+  }
+  const clone = dom.noteArea.cloneNode(true);
+  clone.querySelectorAll("hr.selected").forEach((hr) => hr.classList.remove("selected"));
+  return clone.innerHTML;
+}
+
 export function triggerSave() {
   const note = state.notes.find((n) => n.id === state.activeNoteId);
   if (note) {
-    let content = dom.noteArea.innerHTML;
-    if (dom.noteArea.querySelector("hr.selected")) {
-      const clone = dom.noteArea.cloneNode(true);
-      clone.querySelectorAll("hr.selected").forEach((hr) => hr.classList.remove("selected"));
-      content = clone.innerHTML;
-    }
+    const content = getCleanNoteHtml();
     if (note.content !== content) {
       note.content = content;
       state.noteSearchTextCache.delete(note);
@@ -39,7 +55,12 @@ export function triggerSave() {
   }
 
   saveTimeout = setTimeout(() => {
-    browser.storage.local.set({ notesList: state.notes, foldersList: state.folders, activeNoteId: state.activeNoteId }).then(() => {
+    const local = getLocalStorage();
+    if (!local) {
+      updateStatus("Could not save. Your changes are still open.");
+      return;
+    }
+    local.set({ notesList: state.notes, foldersList: state.folders, activeNoteId: state.activeNoteId }).then(() => {
       updateStatus("Saved");
     }).catch(() => {
       updateStatus("Could not save. Your changes are still open.");
@@ -48,7 +69,10 @@ export function triggerSave() {
 }
 
 export async function loadStorage() {
-  const result = await browser.storage.local.get(["notesList", "foldersList", "theme", "activeNoteId", "showWordCount"]);
+  const local = getLocalStorage();
+  const result = local
+    ? await local.get(["notesList", "foldersList", "theme", "activeNoteId", "showWordCount"])
+    : {};
   state.folders = result.foldersList || [];
   if (result.notesList && result.notesList.length > 0) {
     state.notes = result.notesList;
