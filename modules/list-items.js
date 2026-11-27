@@ -2,7 +2,7 @@ import { linkify } from "./links.js";
 import { dom } from "./dom.js";
 import { triggerSave } from "./storage.js";
 import { editBlocks } from "./editor-history.js";
-import { getEditorRange } from "./range.js";
+import { getEditorRange, getSelectionElement, collapseSelection, isEmptyBlock } from "./range.js";
 
 export const LIST_ITEM_REGISTRY = {
   todo: {
@@ -72,8 +72,7 @@ export function getListItemType(element) {
 }
 
 export function listItemAtSelection() {
-  const node = window.getSelection().anchorNode;
-  const element = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
+  const element = getSelectionElement(window.getSelection().anchorNode);
   const item = element && element.closest(LIST_ITEM_SELECTOR);
   return item && dom.noteArea.contains(item) ? item : null;
 }
@@ -121,7 +120,7 @@ export function toggleListItem(type) {
   if (!selectedRange.collapsed && convertSelectionToListItems(selectedRange, type)) return;
   const row = createListItemElement("", 0, false, type);
   const range = getEditorRange();
-  const node = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+  const node = getSelectionElement(range.startContainer);
   const block = node.closest("div, p, h1, h2, li");
   if (range.collapsed && block && block !== dom.noteArea && dom.noteArea.contains(block) && !block.querySelector("div, p, li, " + LIST_ITEM_SELECTOR)) {
     const content = block.cloneNode(true);
@@ -347,21 +346,16 @@ export function normalizeListRows(root = dom.noteArea) {
   renumberLists(root);
 }
 
-function selectPoint(node, offset = 0) {
-  dom.noteArea.focus();
-  window.getSelection().collapse(node, offset);
-}
-
 export function rowContent(row) {
   return row.querySelector?.(":scope > [data-list-content]") || row.querySelector?.("[data-list-content]") || row;
 }
 
 function emptyContent(content) {
-  return !content.textContent.length && !content.querySelector("img, video, audio");
+  return isEmptyBlock(content, { ignoreBreaks: true });
 }
 
 function ensureContent(content) {
-  if (!content.textContent.length && !content.querySelector("br, img, video, audio")) content.append(document.createElement("br"));
+  if (isEmptyBlock(content)) content.append(document.createElement("br"));
 }
 
 export function insertListItemEdit(range, rows, caretRow, caretOffset) {
@@ -376,7 +370,7 @@ export function insertListItemEdit(range, rows, caretRow, caretOffset) {
     const parent = marker.parentNode;
     const offset = Array.prototype.indexOf.call(parent.childNodes, marker);
     marker.remove();
-    selectPoint(parent, offset);
+    collapseSelection(parent, offset);
   });
 }
 
@@ -391,7 +385,7 @@ export function handleParagraphBackspace(event) {
   const selection = window.getSelection();
   if (!selection.rangeCount || !selection.isCollapsed) return false;
   const range = selection.getRangeAt(0);
-  const element = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+  const element = getSelectionElement(range.startContainer);
   const paragraph = element.closest("div, p, h1, h2");
   if (!paragraph || paragraph === dom.noteArea || paragraph.closest(LIST_ITEM_SELECTOR)) return false;
   const previous = previousBlock(paragraph);
@@ -409,7 +403,7 @@ export function handleParagraphBackspace(event) {
     paragraph.remove();
     ensureContent(target);
     renumberLists(dom.noteArea);
-    selectPoint(target, offset);
+    collapseSelection(target, offset);
   });
   return true;
 }
@@ -471,11 +465,11 @@ function exitList(item) {
   if (isNumber) {
     renumberLists(parent);
   }
-  selectPoint(paragraph);
+  collapseSelection(paragraph);
 }
 
 function selectionBlock(node) {
-  const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  const element = getSelectionElement(node);
   return element.closest(LIST_ITEM_SELECTOR) || element.closest("div, p, h1, h2");
 }
 
@@ -507,7 +501,7 @@ function deleteBlockSelection(range) {
     }
     ensureContent(start);
     renumberLists(dom.noteArea);
-    selectPoint(start, offset);
+    collapseSelection(start, offset);
   });
   return true;
 }
@@ -568,7 +562,7 @@ export function handleListItemKey(event) {
       next.remove();
       ensureContent(content);
       renumberLists(dom.noteArea);
-      selectPoint(content, offset);
+      collapseSelection(content, offset);
     });
     return true;
   }
@@ -587,7 +581,7 @@ export function handleListItemKey(event) {
       rest.setStartAfter(br);
       const remaining = rest.cloneContents();
       if (!remaining.textContent.length && !remaining.querySelector("br, img, video, audio")) br.after(document.createElement("br"));
-      selectPoint(br.parentNode, Array.prototype.indexOf.call(br.parentNode.childNodes, br) + 1);
+      collapseSelection(br.parentNode, Array.prototype.indexOf.call(br.parentNode.childNodes, br) + 1);
       return;
     }
     if (emptyContent(content)) {
@@ -605,7 +599,7 @@ export function handleListItemKey(event) {
     next.append(trailing);
     item.after(next);
     normalizeListRows();
-    selectPoint(rowContent(next));
+    collapseSelection(rowContent(next));
   });
   return true;
 }
@@ -616,7 +610,7 @@ export function initListItems() {
     const item = listItemAtSelection();
     if (!item || !selection.isCollapsed) return;
     const content = rowContent(item);
-    if (!content.contains(selection.anchorNode)) selectPoint(content, selection.anchorNode === item && selection.anchorOffset > 1 ? content.childNodes.length : 0);
+    if (!content.contains(selection.anchorNode)) collapseSelection(content, selection.anchorNode === item && selection.anchorOffset > 1 ? content.childNodes.length : 0);
   });
   dom.noteArea.addEventListener("beforeinput", (event) => {
     if (event.isComposing || !event.inputType.startsWith("insert")) return;
@@ -902,8 +896,8 @@ function flattenHtmlList(listNode, depth = 0) {
           const offset = target.childNodes.length;
           target.append(trailing);
           ensureContent(target);
-          selectPoint(target, offset);
-        } else selectPoint(last, last.length);
+          collapseSelection(target, offset);
+        } else collapseSelection(last, last.length);
       } else {
         range.deleteContents();
         const fragment = document.createDocumentFragment();
@@ -912,7 +906,7 @@ function flattenHtmlList(listNode, depth = 0) {
         normalizeListRows();
         const last = nodes[nodes.length - 1];
         const target = last.nodeType === Node.ELEMENT_NODE ? rowContent(last) : last;
-        selectPoint(target, target.nodeType === Node.TEXT_NODE ? target.length : target.childNodes.length);
+        collapseSelection(target, target.nodeType === Node.TEXT_NODE ? target.length : target.childNodes.length);
       }
       linkify(dom.noteArea, true);
     });

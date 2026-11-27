@@ -1,6 +1,7 @@
 import { dom } from "./dom.js";
 import { editBlocks } from "./editor-history.js";
 import { createListItemElement, normalizeListRows, rowContent, LIST_ITEM_SELECTOR, LIST_PREFIX_SELECTOR } from "./list-items.js";
+import { getTopBlock, setCaretToStart, setCaretAfterOffset, isEmptyBlock } from "./range.js";
 
 let lastAutoFormat = null;
 let onFormatChange = () => {};
@@ -24,56 +25,6 @@ function normalizePoint(node, offset) {
   return { node, offset };
 }
 
-function getTopBlock(node) {
-  if (!node || !dom.noteArea.contains(node) || node === dom.noteArea) return null;
-  while (node.parentElement && node.parentElement !== dom.noteArea) {
-    node = node.parentElement;
-  }
-  return node;
-}
-
-function setCaretToStart(element) {
-  dom.noteArea.focus();
-  const selection = window.getSelection();
-  const range = document.createRange();
-  if (element.firstChild && element.firstChild.nodeType === Node.TEXT_NODE) {
-    range.setStart(element.firstChild, 0);
-  } else {
-    range.setStart(element, 0);
-  }
-  range.collapse(true);
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
-function setCaretToEnd(element) {
-  dom.noteArea.focus();
-  const selection = window.getSelection();
-  const range = document.createRange();
-  if (element.lastChild && element.lastChild.nodeType === Node.TEXT_NODE) {
-    range.setStart(element.lastChild, element.lastChild.length);
-  } else {
-    range.selectNodeContents(element);
-    range.collapse(false);
-    selection.removeAllRanges();
-    selection.addRange(range);
-    return;
-  }
-  range.collapse(true);
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
-function setCaretAfterOffset(node, offset) {
-  dom.noteArea.focus();
-  const selection = window.getSelection();
-  const range = document.createRange();
-  range.setStart(node, Math.min(offset, node.length));
-  range.collapse(true);
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
 function convertToHeading(block, tagName) {
   const heading = document.createElement(tagName);
   if (block.nodeType === Node.ELEMENT_NODE) {
@@ -83,7 +34,7 @@ function convertToHeading(block, tagName) {
   } else if (block.length > 0) {
     heading.appendChild(block.cloneNode(true));
   }
-  if (!heading.hasChildNodes() || (!heading.textContent.length && !heading.querySelector("br, img, video, audio"))) {
+  if (!heading.hasChildNodes() || isEmptyBlock(heading)) {
     heading.replaceChildren(document.createElement("br"));
   }
   block.replaceWith(heading);
@@ -131,124 +82,60 @@ function handleAutoFormatBackspace(event) {
   const range = selection.getRangeAt(0);
   const start = normalizePoint(range.startContainer, range.startOffset);
 
-  if (lastAutoFormat.type === "h1" || lastAutoFormat.type === "h2") {
-    if (!lastAutoFormat.element.isConnected || !lastAutoFormat.element.contains(start.node)) {
-      lastAutoFormat = null;
-      return false;
-    }
-    const preRange = document.createRange();
-    preRange.setStart(lastAutoFormat.element, 0);
-    preRange.setEnd(start.node, start.offset);
-    if (preRange.toString().length > 0) {
-      lastAutoFormat = null;
-      return false;
-    }
-    event.preventDefault();
-    const heading = lastAutoFormat.element;
-    const prefix = lastAutoFormat.prefix;
-    const originalTag = lastAutoFormat.originalTag || "div";
+  const isHr = lastAutoFormat.type === "hr";
+  const isList = lastAutoFormat.type === "todo" || lastAutoFormat.type === "bullet" || lastAutoFormat.type === "number";
+  const isHeading = lastAutoFormat.type === "h1" || lastAutoFormat.type === "h2";
+
+  if (!isHr && !isList && !isHeading) {
     lastAutoFormat = null;
-    editBlocks(() => {
-      const block = document.createElement(originalTag === "h1" || originalTag === "h2" ? "div" : originalTag);
-      const textNode = document.createTextNode(prefix);
-      block.appendChild(textNode);
-      while (heading.firstChild) {
-        if (heading.firstChild.nodeName !== "BR") {
-          block.appendChild(heading.firstChild);
-        } else {
-          heading.firstChild.remove();
-        }
-      }
-      heading.replaceWith(block);
-      setCaretAfterOffset(textNode, prefix.length);
-      onFormatChange();
-    });
-    return true;
+    return false;
   }
 
-  if (lastAutoFormat.type === "todo" || lastAutoFormat.type === "bullet" || lastAutoFormat.type === "number") {
-    if (!lastAutoFormat.element.isConnected) {
-      lastAutoFormat = null;
-      return false;
-    }
-    const content = rowContent(lastAutoFormat.element);
-    if (!content.contains(start.node)) {
-      lastAutoFormat = null;
-      return false;
-    }
-    const preRange = document.createRange();
-    preRange.setStart(content, 0);
-    preRange.setEnd(start.node, start.offset);
-    if (preRange.toString().length > 0) {
-      lastAutoFormat = null;
-      return false;
-    }
-    event.preventDefault();
-    const row = lastAutoFormat.element;
-    const prefix = lastAutoFormat.prefix;
-    const originalTag = lastAutoFormat.originalTag || "div";
+  const target = isHr ? lastAutoFormat.next : lastAutoFormat.element;
+  if (!target?.isConnected || (isHr && !lastAutoFormat.hr?.isConnected)) {
     lastAutoFormat = null;
-    editBlocks(() => {
-      const block = document.createElement(originalTag === "h1" || originalTag === "h2" ? "div" : originalTag);
-      const textNode = document.createTextNode(prefix);
-      block.appendChild(textNode);
-      while (content.firstChild) {
-        if (content.firstChild.nodeName !== "BR" && !content.firstChild.matches?.(LIST_PREFIX_SELECTOR)) {
-          block.appendChild(content.firstChild);
-        } else {
-          content.firstChild.remove();
-        }
-      }
-      row.replaceWith(block);
-      setCaretAfterOffset(textNode, prefix.length);
-      onFormatChange();
-    });
-    return true;
+    return false;
   }
 
-  if (lastAutoFormat.type === "hr") {
-    if (!lastAutoFormat.hr.isConnected || !lastAutoFormat.next.isConnected) {
-      lastAutoFormat = null;
-      return false;
-    }
-    if (!lastAutoFormat.next.contains(start.node)) {
-      lastAutoFormat = null;
-      return false;
-    }
-    const preRange = document.createRange();
-    preRange.setStart(lastAutoFormat.next, 0);
-    preRange.setEnd(start.node, start.offset);
-    if (preRange.toString().length > 0) {
-      lastAutoFormat = null;
-      return false;
-    }
-    event.preventDefault();
-    const hr = lastAutoFormat.hr;
-    const next = lastAutoFormat.next;
-    const prefix = lastAutoFormat.prefix;
-    const originalTag = lastAutoFormat.originalTag || "div";
+  const caretContainer = isList ? rowContent(target) : target;
+  if (!caretContainer.contains(start.node)) {
     lastAutoFormat = null;
-    editBlocks(() => {
-      hr.remove();
-      const block = document.createElement(originalTag === "hr" ? "div" : originalTag);
-      const textNode = document.createTextNode(prefix);
-      block.appendChild(textNode);
-      while (next.firstChild) {
-        if (next.firstChild.nodeName !== "BR") {
-          block.appendChild(next.firstChild);
-        } else {
-          next.firstChild.remove();
-        }
-      }
-      next.replaceWith(block);
-      setCaretAfterOffset(textNode, prefix.length);
-      onFormatChange();
-    });
-    return true;
+    return false;
   }
 
+  const preRange = document.createRange();
+  preRange.setStart(caretContainer, 0);
+  preRange.setEnd(start.node, start.offset);
+  if (preRange.toString().length > 0) {
+    lastAutoFormat = null;
+    return false;
+  }
+
+  event.preventDefault();
+  const { prefix, hr } = lastAutoFormat;
+  const originalTag = lastAutoFormat.originalTag || "div";
+  const tagName = originalTag === "h1" || originalTag === "h2" || originalTag === "hr" ? "div" : originalTag;
   lastAutoFormat = null;
-  return false;
+
+  editBlocks(() => {
+    if (isHr) {
+      hr.remove();
+    }
+    const block = document.createElement(tagName);
+    const textNode = document.createTextNode(prefix);
+    block.appendChild(textNode);
+    while (caretContainer.firstChild) {
+      if (caretContainer.firstChild.nodeName !== "BR" && (!isList || !caretContainer.firstChild.matches?.(LIST_PREFIX_SELECTOR))) {
+        block.appendChild(caretContainer.firstChild);
+      } else {
+        caretContainer.firstChild.remove();
+      }
+    }
+    target.replaceWith(block);
+    setCaretAfterOffset(textNode, prefix.length);
+    onFormatChange();
+  });
+  return true;
 }
 
 function handleHorizontalRuleBackspace(event) {
@@ -341,7 +228,7 @@ export function handleMarkdownShortcut(event) {
   const blockText = block.textContent.trim();
   const isHrTrigger = blockText === "---" || blockText === "***" || blockText === "___";
 
-  if (event.key === "Enter" && isHrTrigger) {
+  if ((event.key === "Enter" || event.key === " ") && isHrTrigger) {
     event.preventDefault();
     editBlocks(() => {
       const { hr, next } = insertHorizontalRule(block);
@@ -363,22 +250,6 @@ export function handleMarkdownShortcut(event) {
   }
 
   if (event.key === " ") {
-    if (isHrTrigger) {
-      event.preventDefault();
-      editBlocks(() => {
-        const { hr, next } = insertHorizontalRule(block);
-        lastAutoFormat = {
-          type: "hr",
-          hr,
-          next,
-          prefix: blockText,
-          originalTag: block.nodeType === Node.ELEMENT_NODE ? block.tagName.toLowerCase() : "div"
-        };
-        onFormatChange();
-      });
-      return true;
-    }
-
     const preRange = document.createRange();
     preRange.setStart(block, 0);
     preRange.setEnd(start.node, start.offset);

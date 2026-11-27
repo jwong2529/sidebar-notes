@@ -6,6 +6,7 @@ import { listItemAtSelection, getListItemType, toggleListItem, handleParagraphBa
 import { initMarkdownShortcuts, handleMarkdownShortcut } from "./markdown.js";
 import { initTextColor, updateTextColorIndicator } from "./text-color.js";
 import { updateWordCount } from "./word-count.js";
+import { getSelectionElement } from "./range.js";
 
 function getFormatMenus() {
   return [
@@ -197,7 +198,7 @@ export function initEditor() {
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
-          const element = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement;
+          const element = getSelectionElement(range.startContainer);
           const block = element?.closest("div, p, h1, h2");
           if (block && block !== dom.noteArea && Number(block.dataset.depth) > 0) {
             e.preventDefault();
