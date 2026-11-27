@@ -1,9 +1,9 @@
 import { dom } from "./dom.js";
 import { editBlocks } from "./editor-history.js";
-import { updateFormatIndicators } from "./editor.js";
 import { createListItemElement, normalizeListRows, rowContent, LIST_ITEM_SELECTOR, LIST_PREFIX_SELECTOR } from "./list-items.js";
 
 let lastAutoFormat = null;
+let onFormatChange = () => {};
 
 function normalizePoint(node, offset) {
   if (!node) return { node: null, offset: 0 };
@@ -161,7 +161,7 @@ function handleAutoFormatBackspace(event) {
       }
       heading.replaceWith(block);
       setCaretAfterOffset(textNode, prefix.length);
-      updateFormatIndicators();
+      onFormatChange();
     });
     return true;
   }
@@ -201,7 +201,7 @@ function handleAutoFormatBackspace(event) {
       }
       row.replaceWith(block);
       setCaretAfterOffset(textNode, prefix.length);
-      updateFormatIndicators();
+      onFormatChange();
     });
     return true;
   }
@@ -242,7 +242,7 @@ function handleAutoFormatBackspace(event) {
       }
       next.replaceWith(block);
       setCaretAfterOffset(textNode, prefix.length);
-      updateFormatIndicators();
+      onFormatChange();
     });
     return true;
   }
@@ -352,7 +352,7 @@ export function handleMarkdownShortcut(event) {
         prefix: blockText,
         originalTag: block.nodeType === Node.ELEMENT_NODE ? block.tagName.toLowerCase() : "div"
       };
-      updateFormatIndicators();
+      onFormatChange();
     });
     return true;
   }
@@ -374,7 +374,7 @@ export function handleMarkdownShortcut(event) {
           prefix: blockText,
           originalTag: block.nodeType === Node.ELEMENT_NODE ? block.tagName.toLowerCase() : "div"
         };
-        updateFormatIndicators();
+        onFormatChange();
       });
       return true;
     }
@@ -402,7 +402,7 @@ export function handleMarkdownShortcut(event) {
           prefix: "# ",
           originalTag
         };
-        updateFormatIndicators();
+        onFormatChange();
       });
       return true;
     }
@@ -418,7 +418,7 @@ export function handleMarkdownShortcut(event) {
           prefix: "## ",
           originalTag
         };
-        updateFormatIndicators();
+        onFormatChange();
       });
       return true;
     }
@@ -435,7 +435,7 @@ export function handleMarkdownShortcut(event) {
           prefix: textBefore + " ",
           originalTag
         };
-        updateFormatIndicators();
+        onFormatChange();
       });
       return true;
     }
@@ -451,7 +451,7 @@ export function handleMarkdownShortcut(event) {
           prefix: textBefore + " ",
           originalTag
         };
-        updateFormatIndicators();
+        onFormatChange();
       });
       return true;
     }
@@ -468,7 +468,7 @@ export function handleMarkdownShortcut(event) {
           prefix: textBefore + " ",
           originalTag
         };
-        updateFormatIndicators();
+        onFormatChange();
       });
       return true;
     }
@@ -480,7 +480,10 @@ export function handleMarkdownShortcut(event) {
   return false;
 }
 
-export function initMarkdownShortcuts() {
+export function initMarkdownShortcuts({ updateFormatIndicators } = {}) {
+  if (updateFormatIndicators) {
+    onFormatChange = updateFormatIndicators;
+  }
   dom.noteArea.addEventListener("mousedown", () => {
     lastAutoFormat = null;
   });

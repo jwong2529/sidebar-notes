@@ -107,7 +107,7 @@ export function format(command, value = null) {
 export function initEditor() {
   initLinks();
   initEditorHistory();
-  initMarkdownShortcuts();
+  initMarkdownShortcuts({ updateFormatIndicators });
   initTextColor({ closeFormatMenus, positionFormatMenu, updateFormatIndicators });
   [dom.textStyleBtn, dom.listPickerBtn, dom.moreFormatBtn, dom.pBtn, dom.h1Btn, dom.h2Btn, dom.underlineBtn, dom.strikeBtn].forEach((element) => {
     element.addEventListener("mousedown", (e) => e.preventDefault());
