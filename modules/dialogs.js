@@ -21,7 +21,7 @@ export function positionActionDialog() {
 export function showActionDialog(title, message, onConfirm, inputValue = null) {
   dom.deleteConfirmTitle.textContent = title;
   dom.deleteConfirmMessage.textContent = message;
-  state.pendingDelete = onConfirm;
+  state.pendingDialogAction = onConfirm;
   dom.actionDialogInput.value = inputValue || "";
   dom.actionDialogInput.classList.toggle("hidden", inputValue === null);
   dom.actionDialogInput.setAttribute("aria-label", "Folder name");
@@ -42,11 +42,11 @@ export function showActionDialog(title, message, onConfirm, inputValue = null) {
   }
 }
 
-export function closeDeleteConfirmation() {
+export function closeActionDialog() {
   dom.deleteConfirmation.classList.add("hidden");
   document.body.classList.remove("delete-confirm-open");
   dom.deleteConfirmation.removeAttribute("style");
-  state.pendingDelete = null;
+  state.pendingDialogAction = null;
   document.querySelector(".container").inert = false;
   const focusTarget = state.dialogReturnFocus && state.dialogReturnFocus.isConnected ? state.dialogReturnFocus : dom.menuBtn;
   state.dialogAnchor = null;
@@ -54,9 +54,9 @@ export function closeDeleteConfirmation() {
   focusTarget.focus();
 }
 
-export function beginInlineRename(container, currentName, onSave, onCancel) {
+export function beginInlineRename(container, currentName, onSave, onCancel, className = "") {
   const input = document.createElement("input");
-  input.className = "inline-name-input";
+  input.className = className ? `inline-name-input ${className}` : "inline-name-input";
   input.type = "text";
   input.value = currentName;
   container.appendChild(input);
@@ -91,17 +91,17 @@ export function beginInlineRename(container, currentName, onSave, onCancel) {
 
 export function initDialogs() {
   const dialogResizeObserver = new ResizeObserver(() => {
-    if (state.pendingDelete) {
+    if (state.pendingDialogAction) {
       positionActionDialog();
     }
   });
   dialogResizeObserver.observe(dom.editorPane);
   dialogResizeObserver.observe(dom.dropdownMenu);
 
-  dom.deleteCancelBtn.addEventListener("click", closeDeleteConfirmation);
+  dom.deleteCancelBtn.addEventListener("click", closeActionDialog);
   dom.deleteConfirmation.addEventListener("click", (event) => event.stopPropagation());
   dom.deleteConfirmBtn.addEventListener("click", () => {
-    const action = state.pendingDelete;
+    const action = state.pendingDialogAction;
     const value = dom.actionDialogInput.value.trim();
     const isInputAction = !dom.actionDialogInput.classList.contains("hidden");
     if (isInputAction && (!value || state.folders.some((folder) => folder.name.toLocaleLowerCase() === value.toLocaleLowerCase()))) {
@@ -109,7 +109,7 @@ export function initDialogs() {
       dom.actionDialogInput.focus();
       return;
     }
-    closeDeleteConfirmation();
+    closeActionDialog();
     if (action) {
       action(isInputAction ? value : undefined);
       if (document.activeElement === document.body) {

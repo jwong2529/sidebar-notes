@@ -1,24 +1,16 @@
 import { resetEditorHistory } from "./modules/editor-history.js";
 import { dom } from "./modules/dom.js";
-import { state } from "./modules/state.js";
-import { updateStatus, triggerSave, loadStorage } from "./modules/storage.js";
-import { initDialogs, closeDeleteConfirmation } from "./modules/dialogs.js";
+import { state, getActiveNote, getNote } from "./modules/state.js";
+import { updateStatus, triggerSave, loadStorage, setStorageValues, getCleanNoteHtml } from "./modules/storage.js";
+import { initDialogs, closeActionDialog, beginInlineRename } from "./modules/dialogs.js";
 import { normalizeListRows, initListItems, listItemAtSelection, createListItemMarkup, handleListItemKey, handleParagraphBackspace } from "./modules/list-items.js";
-import { initEditor, updateFormatIndicators, closeFormatMenus, positionFormatMenus, positionFormatMenu } from "./modules/editor.js";
+import { initEditor, updateFormatIndicators, closeFormatMenus, positionFormatMenus, bindFormatMenu, hasOpenFormatMenu } from "./modules/editor.js";
 import { initImages, closeImageContextMenu } from "./modules/images.js";
-import { initTree, renderNoteList, closeNoteMenu, deleteNote } from "./modules/tree.js";
+import { initTree, renderNoteList, closeNoteMenu, deleteNote, updateFavoriteButton } from "./modules/tree.js";
 import { handleMarkdownShortcut } from "./modules/markdown.js";
 import { updateWordCount, setWordCountEnabled } from "./modules/word-count.js";
 
-export function updateFavoriteButton(note) {
-  if (!dom.favoriteBtn) {
-    return;
-  }
-  const isFav = Boolean(note?.favorite);
-  dom.favoriteBtn.classList.toggle("favorited", isFav);
-  dom.favoriteBtn.title = isFav ? "Unfavorite note" : "Favorite note";
-  dom.favoriteBtn.setAttribute("aria-label", dom.favoriteBtn.title);
-}
+export { updateFavoriteButton };
 
 export function selectNote(id) {
   state.editorRevision += 1;
@@ -26,7 +18,7 @@ export function selectNote(id) {
   dom.imageResizeHandle.classList.add("hidden");
   closeImageContextMenu();
   state.activeNoteId = id;
-  const note = state.notes.find((n) => n.id === id);
+  const note = getNote(id);
   if (note) {
     dom.noteTitleText.textContent = note.title;
     updateFavoriteButton(note);
@@ -34,9 +26,7 @@ export function selectNote(id) {
     const doc = parser.parseFromString(note.content || "", "text/html");
     doc.body.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => checkbox.removeAttribute("contenteditable"));
     dom.noteArea.replaceChildren(...doc.body.childNodes);
-    if (typeof browser !== "undefined" && browser?.storage?.local) {
-      browser.storage.local.set({ activeNoteId: id }).catch(() => {});
-    }
+    setStorageValues({ activeNoteId: id });
   } else {
     dom.noteTitleText.textContent = "Untitled Note";
     updateFavoriteButton(null);
@@ -50,7 +40,7 @@ export function selectNote(id) {
 }
 
 dom.favoriteBtn.addEventListener("click", () => {
-  const note = state.notes.find((n) => n.id === state.activeNoteId);
+  const note = getActiveNote();
   if (note) {
     note.favorite = !note.favorite;
     updateFavoriteButton(note);
@@ -60,41 +50,27 @@ dom.favoriteBtn.addEventListener("click", () => {
 });
 
 function beginTitleRename() {
-  const note = state.notes.find((n) => n.id === state.activeNoteId);
-  if (note && !document.querySelector(".title-name-input")) {
-    dom.noteTitleText.hidden = true;
-    const input = document.createElement("input");
-    input.className = "inline-name-input title-name-input";
-    input.value = note.title || "Untitled Note";
-    dom.noteTitleText.parentElement.appendChild(input);
-    const finish = (save) => {
-      if (!input.isConnected) {
-        return;
-      }
-      const name = input.value.trim();
-      input.remove();
-      dom.noteTitleText.hidden = false;
-      if (save && name) {
-        note.title = name;
-        dom.noteTitleText.textContent = name;
-        renderNoteList();
-        triggerSave();
-      }
-    };
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        finish(true);
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        finish(false);
-      }
-    });
-    input.addEventListener("blur", () => finish(true));
-    input.focus();
-    input.select();
+  const note = getActiveNote();
+  if (!note || document.querySelector(".title-name-input")) {
+    return;
   }
+  dom.noteTitleText.hidden = true;
+  const restoreTitle = () => {
+    dom.noteTitleText.hidden = false;
+  };
+  beginInlineRename(
+    dom.noteTitleText.parentElement,
+    note.title || "Untitled Note",
+    (name) => {
+      note.title = name;
+      dom.noteTitleText.textContent = name;
+      restoreTitle();
+      renderNoteList();
+      triggerSave();
+    },
+    restoreTitle,
+    "title-name-input"
+  );
 }
 
 dom.noteTitleText.addEventListener("click", beginTitleRename);
@@ -112,27 +88,13 @@ export function closeNoteOptionsMenu() {
   }
 }
 
-dom.noteOptionsBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  const isHidden = dom.noteOptionsMenu.classList.contains("hidden");
-  closeFormatMenus();
-  closeNoteMenu();
-  if (isHidden) {
-    dom.noteOptionsMenu.classList.remove("hidden");
-    dom.noteOptionsBtn.setAttribute("aria-expanded", "true");
-    positionFormatMenu(dom.noteOptionsMenu);
-  } else {
-    closeNoteOptionsMenu();
-  }
-});
+bindFormatMenu(dom.noteOptionsBtn, dom.noteOptionsMenu, { onBeforeOpen: closeNoteMenu });
 
 dom.exportBtn.addEventListener("click", () => {
   closeNoteOptionsMenu();
-  const note = state.notes.find((n) => n.id === state.activeNoteId);
+  const note = getActiveNote();
   const title = (note ? note.title : "notes").replace(/[^a-z0-9]/gi, "_").toLowerCase();
-  const clone = dom.noteArea.cloneNode(true);
-  clone.querySelectorAll("hr.selected").forEach((hr) => hr.classList.remove("selected"));
-  const notesHtml = clone.innerHTML;
+  const notesHtml = getCleanNoteHtml();
   const blob = new Blob([notesHtml], { type: "text/html" });
   const url = URL.createObjectURL(blob);
 
@@ -147,16 +109,14 @@ dom.exportBtn.addEventListener("click", () => {
 dom.themeBtn.addEventListener("click", () => {
   closeNoteOptionsMenu();
   const isDark = document.body.classList.toggle("dark-theme");
-  browser.storage.local.set({ theme: isDark ? "dark" : "light" });
+  setStorageValues({ theme: isDark ? "dark" : "light" });
 });
 
 dom.wordCountBtn.addEventListener("click", () => {
   closeNoteOptionsMenu();
   const next = !state.showWordCount;
   setWordCountEnabled(next);
-  if (typeof browser !== "undefined" && browser?.storage?.local) {
-    browser.storage.local.set({ showWordCount: next }).catch(() => {});
-  }
+  setStorageValues({ showWordCount: next });
 });
 
 window.addEventListener("resize", () => {
@@ -164,7 +124,7 @@ window.addEventListener("resize", () => {
 });
 
 document.addEventListener("click", (e) => {
-  if (state.pendingDelete) {
+  if (state.pendingDialogAction) {
     return;
   }
   if (!dom.dropdownMenu.contains(e.target) && e.target !== dom.menuBtn) {
@@ -179,7 +139,7 @@ document.addEventListener("click", (e) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (state.pendingDelete && event.key === "Tab") {
+  if (state.pendingDialogAction && event.key === "Tab") {
     const controls = dom.actionDialogInput.classList.contains("hidden")
       ? [dom.deleteCancelBtn, dom.deleteConfirmBtn]
       : [dom.actionDialogInput, dom.deleteCancelBtn, dom.deleteConfirmBtn];
@@ -190,7 +150,7 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.key === "Escape" && !dom.deleteConfirmation.classList.contains("hidden")) {
     event.preventDefault();
-    closeDeleteConfirmation();
+    closeActionDialog();
   } else if (event.key === "Escape" && !dom.dropdownMenu.classList.contains("hidden")) {
     event.preventDefault();
     closeNoteMenu();
@@ -199,7 +159,7 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     closeNoteOptionsMenu();
     dom.noteOptionsBtn.focus();
-  } else if (event.key === "Escape" && (!dom.textStyleMenu.classList.contains("hidden") || !dom.listPickerMenu.classList.contains("hidden") || !dom.moreFormatMenu.classList.contains("hidden") || !dom.textColorMenu?.classList.contains("hidden"))) {
+  } else if (event.key === "Escape" && hasOpenFormatMenu()) {
     event.preventDefault();
     closeFormatMenus();
   }
