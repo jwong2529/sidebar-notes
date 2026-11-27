@@ -2,7 +2,7 @@ import { resetEditorHistory } from "./modules/editor-history.js";
 import { dom } from "./modules/dom.js";
 import { state, getActiveNote, getNote } from "./modules/state.js";
 import { updateStatus, triggerSave, loadStorage, setStorageValues, getCleanNoteHtml } from "./modules/storage.js";
-import { initDialogs, closeDeleteConfirmation, beginInlineRename } from "./modules/dialogs.js";
+import { initDialogs, closeActionDialog, beginInlineRename } from "./modules/dialogs.js";
 import { normalizeListRows, initListItems, listItemAtSelection, createListItemMarkup, handleListItemKey, handleParagraphBackspace } from "./modules/list-items.js";
 import { initEditor, updateFormatIndicators, closeFormatMenus, positionFormatMenus, bindFormatMenu, hasOpenFormatMenu } from "./modules/editor.js";
 import { initImages, closeImageContextMenu } from "./modules/images.js";
@@ -124,7 +124,7 @@ window.addEventListener("resize", () => {
 });
 
 document.addEventListener("click", (e) => {
-  if (state.pendingDelete) {
+  if (state.pendingDialogAction) {
     return;
   }
   if (!dom.dropdownMenu.contains(e.target) && e.target !== dom.menuBtn) {
@@ -139,7 +139,7 @@ document.addEventListener("click", (e) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (state.pendingDelete && event.key === "Tab") {
+  if (state.pendingDialogAction && event.key === "Tab") {
     const controls = dom.actionDialogInput.classList.contains("hidden")
       ? [dom.deleteCancelBtn, dom.deleteConfirmBtn]
       : [dom.actionDialogInput, dom.deleteCancelBtn, dom.deleteConfirmBtn];
@@ -150,7 +150,7 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.key === "Escape" && !dom.deleteConfirmation.classList.contains("hidden")) {
     event.preventDefault();
-    closeDeleteConfirmation();
+    closeActionDialog();
   } else if (event.key === "Escape" && !dom.dropdownMenu.classList.contains("hidden")) {
     event.preventDefault();
     closeNoteMenu();

@@ -6,7 +6,7 @@ export const state = {
   draggedNoteId: null,
   draggedNoteIds: [],
   draggedFolderId: null,
-  pendingDelete: null,
+  pendingDialogAction: null,
   dialogAnchor: null,
   dialogReturnFocus: null,
   editorRevision: 0,

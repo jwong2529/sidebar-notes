@@ -412,7 +412,7 @@ export function initTree(selectNoteFn) {
   });
 
   dom.menuBtn.addEventListener("click", (e) => {
-    if (state.pendingDelete) {
+    if (state.pendingDialogAction) {
       e.stopPropagation();
       return;
     }
