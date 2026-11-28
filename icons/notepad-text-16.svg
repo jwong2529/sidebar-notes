@@ -1,1 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-notepad-text-icon lucide-notepad-text"><path d="M8 2v4"/><path d="M12 2v4"/><path d="M16 2v4"/><rect width="16" height="18" x="4" y="4" rx="2"/><path d="M8 10h6"/><path d="M8 14h8"/><path d="M8 18h5"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 48 48" fill="none">
+  <rect x="2" y="2" width="44" height="44" rx="10" fill="#18191B"/>
+  <rect x="12.5" y="10.5" width="23" height="29.5" rx="3" fill="#F3F4F6"/>
+  <circle cx="17.25" cy="13.2" r="1.35" fill="#18191B"/>
+  <line x1="17.25" y1="8.8" x2="17.25" y2="13.2" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round"/>
+  <circle cx="21.75" cy="13.2" r="1.35" fill="#18191B"/>
+  <line x1="21.75" y1="8.8" x2="21.75" y2="13.2" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round"/>
+  <circle cx="26.25" cy="13.2" r="1.35" fill="#18191B"/>
+  <line x1="26.25" y1="8.8" x2="26.25" y2="13.2" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round"/>
+  <circle cx="30.75" cy="13.2" r="1.35" fill="#18191B"/>
+  <line x1="30.75" y1="8.8" x2="30.75" y2="13.2" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round"/>
+  <line x1="16.5" y1="19.5" x2="31.5" y2="19.5" stroke="#6B7280" stroke-width="1.25" stroke-linecap="round"/>
+  <line x1="16.5" y1="23.0" x2="31.5" y2="23.0" stroke="#6B7280" stroke-width="1.25" stroke-linecap="round"/>
+  <line x1="16.5" y1="26.5" x2="31.5" y2="26.5" stroke="#6B7280" stroke-width="1.25" stroke-linecap="round"/>
+  <line x1="16.5" y1="30.0" x2="31.5" y2="30.0" stroke="#6B7280" stroke-width="1.25" stroke-linecap="round"/>
+  <line x1="16.5" y1="33.5" x2="31.5" y2="33.5" stroke="#6B7280" stroke-width="1.25" stroke-linecap="round"/>
+  <line x1="16.5" y1="37.0" x2="31.5" y2="37.0" stroke="#6B7280" stroke-width="1.25" stroke-linecap="round"/>
+</svg>
